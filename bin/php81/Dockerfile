@@ -5,9 +5,12 @@ FROM php:8.1-apache-bullseye
  
 ARG DEBIAN_FRONTEND=noninteractive
 
+# Fix Debian Bullseye archive mirrors (avoiding 404 on security mirrors)
+RUN echo "deb http://deb.debian.org/debian bullseye main" > /etc/apt/sources.list && \
+    echo "deb http://deb.debian.org/debian bullseye-updates main" >> /etc/apt/sources.list
+
 # Update
 RUN apt-get -y update --fix-missing && \
-    apt-get upgrade -y && \
     apt-get --no-install-recommends install -y apt-utils && \
     rm -rf /var/lib/apt/lists/*
 

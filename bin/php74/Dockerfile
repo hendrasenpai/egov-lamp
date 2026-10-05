@@ -2,9 +2,12 @@ FROM php:7.4-apache-bullseye
 
 ARG DEBIAN_FRONTEND=noninteractive
 
+# Fix Debian Bullseye archive mirrors (avoiding 404 on security mirrors)
+RUN echo "deb http://deb.debian.org/debian bullseye main" > /etc/apt/sources.list && \
+    echo "deb http://deb.debian.org/debian bullseye-updates main" >> /etc/apt/sources.list
+
 # Update & install semua dependency sekaligus untuk efisiensi
 RUN apt-get update && \
-    apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
         apt-utils \
         nano \
