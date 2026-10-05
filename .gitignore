@@ -1,0 +1,27 @@
+# Environment & credentials
+.env
+
+# Database data
+data/mysql/*
+!data/mysql/.gitkeep
+
+# Logs
+logs/*
+!logs/.gitkeep
+
+# Projects in www (only keep template dashboard & diagnostics)
+www/*
+!www/index.php
+!www/test_db.php
+!www/.gitkeep
+
+# Temporary & Workspace files
+.ws
+*.tmp
+*.log
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

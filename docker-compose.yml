@@ -1,0 +1,209 @@
+services:
+  # ==========================================
+  # Database Service (MariaDB 10.6)
+  # ==========================================
+  database:
+    build:
+      context: "./bin/${DATABASE}"
+    container_name: "gov-database"
+    ports:
+      - "127.0.0.1:${HOST_MACHINE_MYSQL_PORT}:3306"
+    command: --max-allowed-packet=512M
+    volumes:
+      - ${MYSQL_INITDB_DIR-./config/initdb}:/docker-entrypoint-initdb.d
+      - ${MYSQL_DATA_DIR-./data/mysql}:/var/lib/mysql
+      - ${MYSQL_LOG_DIR-./logs/mysql}:/var/log/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+
+  # ==========================================
+  # phpMyAdmin
+  # ==========================================
+  phpmyadmin:
+    image: phpmyadmin
+    container_name: "gov-phpmyadmin"
+    links:
+      - database
+    environment:
+      PMA_HOST: database
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      UPLOAD_LIMIT: ${UPLOAD_LIMIT}
+      MEMORY_LIMIT: ${MEMORY_LIMIT}
+    ports:
+      - "${HOST_MACHINE_PMA_PORT}:80"
+      - "${HOST_MACHINE_PMA_SECURE_PORT}:443"
+    volumes:
+      - /sessions
+      - ${PHP_INI-./config/php/php.ini}:/usr/local/etc/php/conf.d/php-phpmyadmin.ini
+
+  # ==========================================
+  # Redis Cache
+  # ==========================================
+  redis:
+    container_name: "gov-redis"
+    image: redis:latest
+    ports:
+      - "127.0.0.1:${HOST_MACHINE_REDIS_PORT}:6379"
+
+  # ==========================================
+  # PHP 7.4 (Port 8074)
+  # ==========================================
+  php74:
+    build:
+      context: ./bin/php74
+    container_name: "gov-php74"
+    ports:
+      - "8074:80"
+      - "8474:443"
+    links:
+      - database
+    volumes:
+      - ${DOCUMENT_ROOT-./www}:/var/www/html:rw
+      - ${PHP_INI-./config/php/php.ini}:/usr/local/etc/php/php.ini
+      - ${SSL_DIR-./config/ssl}:/etc/apache2/ssl/
+      - ${VHOSTS_DIR-./config/vhosts}:/etc/apache2/sites-enabled
+      - ./logs/php74:/var/log/apache2
+      - ./logs/xdebug-php74:/var/log/xdebug
+    environment:
+      APACHE_DOCUMENT_ROOT: ${APACHE_DOCUMENT_ROOT-/var/www/html}
+      PMA_PORT: ${HOST_MACHINE_PMA_PORT}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      HOST_MACHINE_MYSQL_PORT: ${HOST_MACHINE_MYSQL_PORT}
+      XDEBUG_CONFIG: "client_host=host.docker.internal remote_port=9074"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ==========================================
+  # PHP 8.0 (Port 8080)
+  # ==========================================
+  php80:
+    build:
+      context: ./bin/php8
+    container_name: "gov-php80"
+    ports:
+      - "8080:80"
+      - "8480:443"
+    links:
+      - database
+    volumes:
+      - ${DOCUMENT_ROOT-./www}:/var/www/html:rw
+      - ${PHP_INI-./config/php/php.ini}:/usr/local/etc/php/php.ini
+      - ${SSL_DIR-./config/ssl}:/etc/apache2/ssl/
+      - ${VHOSTS_DIR-./config/vhosts}:/etc/apache2/sites-enabled
+      - ./logs/php80:/var/log/apache2
+      - ./logs/xdebug-php80:/var/log/xdebug
+    environment:
+      APACHE_DOCUMENT_ROOT: ${APACHE_DOCUMENT_ROOT-/var/www/html}
+      PMA_PORT: ${HOST_MACHINE_PMA_PORT}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      HOST_MACHINE_MYSQL_PORT: ${HOST_MACHINE_MYSQL_PORT}
+      XDEBUG_CONFIG: "client_host=host.docker.internal remote_port=9080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ==========================================
+  # PHP 8.1 (Port 8081)
+  # ==========================================
+  php81:
+    build:
+      context: ./bin/php81
+    container_name: "gov-php81"
+    ports:
+      - "8081:80"
+      - "8481:443"
+    links:
+      - database
+    volumes:
+      - ${DOCUMENT_ROOT-./www}:/var/www/html:rw
+      - ${PHP_INI-./config/php/php.ini}:/usr/local/etc/php/php.ini
+      - ${SSL_DIR-./config/ssl}:/etc/apache2/ssl/
+      - ${VHOSTS_DIR-./config/vhosts}:/etc/apache2/sites-enabled
+      - ./logs/php81:/var/log/apache2
+      - ./logs/xdebug-php81:/var/log/xdebug
+    environment:
+      APACHE_DOCUMENT_ROOT: ${APACHE_DOCUMENT_ROOT-/var/www/html}
+      PMA_PORT: ${HOST_MACHINE_PMA_PORT}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      HOST_MACHINE_MYSQL_PORT: ${HOST_MACHINE_MYSQL_PORT}
+      XDEBUG_CONFIG: "client_host=host.docker.internal remote_port=9081"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ==========================================
+  # PHP 8.2 (Port 8082)
+  # ==========================================
+  php82:
+    build:
+      context: ./bin/php82
+    container_name: "gov-php82"
+    ports:
+      - "8082:80"
+      - "8482:443"
+    links:
+      - database
+    volumes:
+      - ${DOCUMENT_ROOT-./www}:/var/www/html:rw
+      - ${PHP_INI-./config/php/php.ini}:/usr/local/etc/php/php.ini
+      - ${SSL_DIR-./config/ssl}:/etc/apache2/ssl/
+      - ${VHOSTS_DIR-./config/vhosts}:/etc/apache2/sites-enabled
+      - ./logs/php82:/var/log/apache2
+      - ./logs/xdebug-php82:/var/log/xdebug
+    environment:
+      APACHE_DOCUMENT_ROOT: ${APACHE_DOCUMENT_ROOT-/var/www/html}
+      PMA_PORT: ${HOST_MACHINE_PMA_PORT}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      HOST_MACHINE_MYSQL_PORT: ${HOST_MACHINE_MYSQL_PORT}
+      XDEBUG_CONFIG: "client_host=host.docker.internal remote_port=9082"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ==========================================
+  # PHP 8.3 (Port 8083)
+  # ==========================================
+  php83:
+    build:
+      context: ./bin/php83
+    container_name: "gov-php83"
+    ports:
+      - "8083:80"
+      - "8483:443"
+    links:
+      - database
+    volumes:
+      - ${DOCUMENT_ROOT-./www}:/var/www/html:rw
+      - ${PHP_INI-./config/php/php.ini}:/usr/local/etc/php/php.ini
+      - ${SSL_DIR-./config/ssl}:/etc/apache2/ssl/
+      - ${VHOSTS_DIR-./config/vhosts}:/etc/apache2/sites-enabled
+      - ./logs/php83:/var/log/apache2
+      - ./logs/xdebug-php83:/var/log/xdebug
+    environment:
+      APACHE_DOCUMENT_ROOT: ${APACHE_DOCUMENT_ROOT-/var/www/html}
+      PMA_PORT: ${HOST_MACHINE_PMA_PORT}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      HOST_MACHINE_MYSQL_PORT: ${HOST_MACHINE_MYSQL_PORT}
+      XDEBUG_CONFIG: "client_host=host.docker.internal remote_port=9083"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
