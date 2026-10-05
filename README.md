@@ -92,25 +92,29 @@ Buka browser di:
 
 Agar Anda bisa memanggil perintah `gov` langsung dari mana saja tanpa mengetik `./cli/`:
 
-### 🐧 Untuk Linux, macOS & Windows (WSL 2 / Git Bash)
+### 🐧 Untuk Linux & macOS (serta Windows WSL 2 / Git Bash)
+
+*Jalankan perintah ini saat Anda berada di dalam folder `gov-lamp` yang baru di-clone:*
 
 1. **Buat Symlink `gov` Launcher**:
    ```bash
    mkdir -p ~/bin
-   ln -sf ~/gov-lamp/cli/gov ~/bin/gov
+   ln -sf "$(pwd)/cli/gov" ~/bin/gov
    ```
-   *(Pastikan `~/bin` ada di dalam `$PATH` Anda).*
+   *(Pastikan folder `~/bin` ada di dalam `$PATH` Anda).*
 
 2. **Daftarkan Shell Helpers (`artisan`, `composer`, `fix-perms`)**:
-   Tambahkan baris berikut di baris paling bawah file `~/.bashrc` atau `~/.zshrc`:
-   ```bash
-   source ~/gov-lamp/cli/docker-php-helpers.sh
-   ```
-   Lalu reload terminal:
-   ```bash
-   source ~/.bashrc
-   ```
-   Setelah itu, Anda bisa langsung mengetik `gov` di mana saja!
+   - **Pengguna Linux & Git Bash** (tambahkan ke `~/.bashrc`):
+     ```bash
+     echo "source $(pwd)/cli/docker-php-helpers.sh" >> ~/.bashrc
+     source ~/.bashrc
+     ```
+   - **Pengguna macOS** (tambahkan ke `~/.zshrc`):
+     ```bash
+     echo "source $(pwd)/cli/docker-php-helpers.sh" >> ~/.zshrc
+     source ~/.zshrc
+     ```
+   Setelah itu, Anda bisa langsung mengetik `gov` dari folder mana saja!
 
 ### 🪟 Untuk Windows Native (Command Prompt & PowerShell)
 

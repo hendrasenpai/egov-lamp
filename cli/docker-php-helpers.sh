@@ -13,7 +13,9 @@ _run_gov_docker() {
     # Periksa apakah container aktif
     if ! docker ps --format '{{.Names}}' | grep -q "^${container}$"; then
         echo -e "\033[1;33mContainer $container belum aktif. Menyalakan otomatis...\033[0m"
-        local root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+        local script_src="${BASH_SOURCE[0]:-${(%):-%x}}"
+        local root_dir="$(cd "$(dirname "$script_src")/.." 2>/dev/null && pwd)"
+        [ -z "$root_dir" ] && root_dir="$PWD"
         (cd "$root_dir" && docker compose up -d database "$php_ver")
     fi
 
