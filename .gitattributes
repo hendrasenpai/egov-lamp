@@ -1,0 +1,13 @@
+# Auto detect text files and perform LF normalization
+* text=auto eol=lf
+
+# Explicitly declare text files you want to always be normalized and converted to native line endings on checkout
+*.php text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Shell scripts and Docker files inside Linux containers MUST use LF
+cli/gov text eol=lf
+cli/docker-php-helpers.sh text eol=lf
+bin/**/* text eol=lf

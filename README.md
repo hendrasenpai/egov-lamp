@@ -64,11 +64,21 @@ cp .env.example .env
 ```
 
 ### 3. Jalankan Menggunakan Interactive Launcher (`gov`)
+
+#### 🐧 Pengguna Linux, macOS, atau Windows WSL / Git Bash:
 ```bash
 chmod +x cli/gov
 ./cli/gov
 ```
-Pilih opsi:
+
+#### 🪟 Pengguna Windows Native (Command Prompt / PowerShell):
+Cukup jalankan file `gov.bat` di folder `cli`:
+```cmd
+.\cli\gov.bat
+```
+*(Atau cukup klik dua kali file `cli/gov.bat` langsung dari File Explorer Windows).*
+
+Pilih opsi di menu:
 - Ketik `1` untuk memilih versi PHP tertentu (misal: hanya PHP 7.4 atau PHP 8.2).
 - Ketik `2` untuk menjalankan mode rekomendasi default (PHP 7.4 + MariaDB + phpMyAdmin + Redis).
 - Ketik `3` untuk menyalakan seluruh versi PHP secara bersamaan.
@@ -78,9 +88,11 @@ Buka browser di:
 
 ---
 
-## 🛠️ Instalasi CLI Helper ke Terminal Host (Opsional tapi Sangat Direkomendasikan)
+## 🛠️ Instalasi CLI Helper ke Terminal Host (Opsional)
 
-Agar Anda bisa menjalankan perintah `gov`, `php74`, `composer82`, `artisan`, dan `fix-perms` dari direktori mana saja di terminal:
+Agar Anda bisa memanggil perintah `gov` langsung dari mana saja tanpa mengetik `./cli/`:
+
+### 🐧 Untuk Linux, macOS & Windows (WSL 2 / Git Bash)
 
 1. **Buat Symlink `gov` Launcher**:
    ```bash
@@ -89,7 +101,7 @@ Agar Anda bisa menjalankan perintah `gov`, `php74`, `composer82`, `artisan`, dan
    ```
    *(Pastikan `~/bin` ada di dalam `$PATH` Anda).*
 
-2. **Daftarkan Shell Helpers**:
+2. **Daftarkan Shell Helpers (`artisan`, `composer`, `fix-perms`)**:
    Tambahkan baris berikut di baris paling bawah file `~/.bashrc` atau `~/.zshrc`:
    ```bash
    source ~/gov-lamp/cli/docker-php-helpers.sh
@@ -98,8 +110,19 @@ Agar Anda bisa menjalankan perintah `gov`, `php74`, `composer82`, `artisan`, dan
    ```bash
    source ~/.bashrc
    ```
+   Setelah itu, Anda bisa langsung mengetik `gov` di mana saja!
 
-Setelah itu, Anda bisa langsung mengetik `gov` di mana saja untuk mengontrol container!
+### 🪟 Untuk Windows Native (Command Prompt & PowerShell)
+
+1. Buka Windows Start Menu, ketik **"env"** dan pilih **"Edit the system environment variables"**.
+2. Klik tombol **Environment Variables...**
+3. Di bagian **User variables for [User]**, pilih baris **Path** lalu klik **Edit...**
+4. Klik tombol **New**, lalu tempel path folder `cli` Anda (contoh: `C:\Users\Username\gov-lamp\cli`).
+5. Klik **OK** pada semua jendela.
+6. Buka jendela CMD atau PowerShell baru, dan Anda bisa langsung mengetik:
+   ```cmd
+   gov
+   ```
 
 ---
 
