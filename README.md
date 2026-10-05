@@ -13,7 +13,7 @@ Lingkungan pengembangan lokal modern berbasis **Docker Compose** yang dirancang 
 ## 🌟 Fitur Unggulan
 
 - **Multi-PHP Paralel / On-Demand**: Mendukung PHP **7.4, 8.0, 8.1, 8.2, dan 8.3** sekaligus dalam port berbeda.
-- **Interactive Terminal Launcher (`ws`)**: Menu terminal interaktif untuk menyalakan/mematikan container hanya dengan memilih nomor.
+- **Interactive Terminal Launcher (`gov`)**: Menu terminal interaktif untuk menyalakan/mematikan container hanya dengan memilih nomor.
 - **Smart Web Dashboard**:
   - Deteksi otomatis framework project (**Laravel**, **CodeIgniter 3**, **CodeIgniter 4**, **PHP Native**).
   - Indikator status container aktif secara *real-time* (live ping).
@@ -63,10 +63,10 @@ cd ~/gov-lamp
 cp .env.example .env
 ```
 
-### 3. Jalankan Menggunakan Interactive Launcher (`ws`)
+### 3. Jalankan Menggunakan Interactive Launcher (`gov`)
 ```bash
-chmod +x cli/ws
-./cli/ws
+chmod +x cli/gov
+./cli/gov
 ```
 Pilih opsi:
 - Ketik `1` untuk memilih versi PHP tertentu (misal: hanya PHP 7.4 atau PHP 8.2).
@@ -80,12 +80,12 @@ Buka browser di:
 
 ## 🛠️ Instalasi CLI Helper ke Terminal Host (Opsional tapi Sangat Direkomendasikan)
 
-Agar Anda bisa menjalankan perintah `ws`, `php74`, `composer82`, `artisan`, dan `fix-perms` dari direktori mana saja di terminal:
+Agar Anda bisa menjalankan perintah `gov`, `php74`, `composer82`, `artisan`, dan `fix-perms` dari direktori mana saja di terminal:
 
-1. **Buat Symlink `ws` Launcher**:
+1. **Buat Symlink `gov` Launcher**:
    ```bash
    mkdir -p ~/bin
-   ln -sf ~/gov-lamp/cli/ws ~/bin/ws
+   ln -sf ~/gov-lamp/cli/gov ~/bin/gov
    ```
    *(Pastikan `~/bin` ada di dalam `$PATH` Anda).*
 
@@ -99,7 +99,7 @@ Agar Anda bisa menjalankan perintah `ws`, `php74`, `composer82`, `artisan`, dan 
    source ~/.bashrc
    ```
 
-Setelah itu, Anda bisa langsung mengetik `ws` di mana saja untuk mengontrol container!
+Setelah itu, Anda bisa langsung mengetik `gov` di mana saja untuk mengontrol container!
 
 ---
 
@@ -115,7 +115,7 @@ gov-lamp/
 │   ├── php82/
 │   └── php83/
 ├── cli/                 # Script pembantu terminal
-│   ├── ws               # Interactive terminal launcher
+│   ├── gov              # Interactive terminal launcher
 │   └── docker-php-helpers.sh # Shell functions & auto router
 ├── config/              # Konfigurasi Apache, PHP.ini, dan vhosts
 │   ├── php/
