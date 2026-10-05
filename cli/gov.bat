@@ -20,16 +20,18 @@ echo   [2] Nyalakan Default / Rekomendasi (PHP 7.4 + DB + PMA)
 echo   [3] Nyalakan SEMUA Versi PHP Sekaligus
 echo   [4] Matikan Semua Container gov-lamp
 echo   [5] Cek Status Container Aktif
+echo   [6] Pasang Shortcut CLI ke PowerShell (php74, composer74, artisan, dll)
 echo   [0] Keluar
 echo.
 set "ACTION_CHOICE="
-set /p "ACTION_CHOICE=Masukkan pilihan [0-5]: "
+set /p "ACTION_CHOICE=Masukkan pilihan [0-6]: "
 
 if "%ACTION_CHOICE%"=="1" goto CHOOSE_PHP
 if "%ACTION_CHOICE%"=="2" goto START_DEFAULT
 if "%ACTION_CHOICE%"=="3" goto START_ALL
 if "%ACTION_CHOICE%"=="4" goto STOP_ALL
 if "%ACTION_CHOICE%"=="5" goto STATUS
+if "%ACTION_CHOICE%"=="6" goto SETUP_PS
 if "%ACTION_CHOICE%"=="0" goto EXIT
 goto INVALID
 
@@ -122,9 +124,17 @@ echo.
 pause
 goto MENU
 
+:SETUP_PS
+echo.
+echo Memasang shortcut helpers ke profil PowerShell Anda...
+powershell -ExecutionPolicy Bypass -NoProfile -Command "$profilePath = $PROFILE; $dir = Split-Path -Parent $profilePath; if (!(Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }; if (!(Test-Path $profilePath)) { New-Item -ItemType File -Path $profilePath -Force | Out-Null }; $line = '. \"%ROOT_DIR%\cli\docker-php-helpers.ps1\"'; if (-not (Get-Content $profilePath -ErrorAction SilentlyContinue | Select-String -SimpleMatch $line)) { Add-Content -Path $profilePath -Value \"`n$line\" }; Write-Host '[OK] Shortcut helpers berhasil ditambahkan ke profil PowerShell!' -ForegroundColor Green; Write-Host 'Silakan tutup dan buka kembali PowerShell Anda, atau ketik: . $PROFILE' -ForegroundColor Cyan"
+echo.
+pause
+goto MENU
+
 :INVALID
 echo.
-echo Pilihan tidak valid! Pastikan Anda memasukkan angka 1 sampai 5.
+echo Pilihan tidak valid! Pastikan Anda memasukkan angka 0 sampai 6.
 echo.
 pause
 goto MENU
