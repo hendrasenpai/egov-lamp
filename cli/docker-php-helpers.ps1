@@ -11,9 +11,27 @@
 # ==============================================================================
 
 # Deteksi root folder gov-lamp secara dinamis
-$script:GOV_ROOT = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+$scriptDir = $PSScriptRoot
+if (-not $scriptDir -and $MyInvocation.MyCommand.Path) {
+    $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+}
+if (-not $scriptDir -and $MyInvocation.MyCommand.Definition) {
+    $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+}
+
+$script:GOV_ROOT = ""
+if ($scriptDir) {
+    $script:GOV_ROOT = Split-Path -Parent $scriptDir
+}
+
 if (-not $script:GOV_ROOT -or -not (Test-Path "$script:GOV_ROOT\docker-compose.yml")) {
-    $script:GOV_ROOT = "C:\gov-lamp"
+    if (Test-Path "C:\gov-lamp\docker-compose.yml") {
+        $script:GOV_ROOT = "C:\gov-lamp"
+    } elseif (Test-Path "$PWD\docker-compose.yml") {
+        $script:GOV_ROOT = "$PWD"
+    } elseif (Test-Path "$PWD\..\docker-compose.yml") {
+        $script:GOV_ROOT = (Resolve-Path "$PWD\..").Path
+    }
 }
 
 # Shortcut command: gov (membuka interactive menu)
@@ -49,8 +67,21 @@ function Invoke-GovDocker {
         $containerCwd = "/var/www/html"
     }
 
-    # Jalankan perintah di dalam container
-    docker exec -it -w $containerCwd $container @CmdArgs
+    # Cek apakah perintah membutuhkan TTY interaktif (seperti bash, sh, tinker)
+    $needsTty = $false
+    foreach ($arg in $CmdArgs) {
+        if ($arg -in @("tinker", "bash", "sh", "-a")) {
+            $needsTty = $true
+            break
+        }
+    }
+
+    # Jalankan perintah: jika bukan interactive REPL/shell, jalankan tanpa flag -it agar tidak deadlock TTY di Windows
+    if ($needsTty) {
+        docker exec -it -w $containerCwd $container @CmdArgs
+    } else {
+        docker exec -w $containerCwd $container @CmdArgs
+    }
 }
 
 function Get-GovTargetPhp {
