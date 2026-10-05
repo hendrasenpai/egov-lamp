@@ -21,7 +21,7 @@ function gov {
     & "$script:GOV_ROOT\cli\gov.bat" @args
 }
 
-function private:Invoke-GovDocker {
+function Invoke-GovDocker {
     param(
         [Parameter(Mandatory=$true, Position=0)][string]$PhpVer,
         [Parameter(ValueFromRemainingArguments=$true)][string[]]$CmdArgs
@@ -50,10 +50,10 @@ function private:Invoke-GovDocker {
     }
 
     # Jalankan perintah di dalam container
-    docker exec -it -w $containerCwd $container $CmdArgs
+    docker exec -it -w $containerCwd $container @CmdArgs
 }
 
-function private:Get-GovTargetPhp {
+function Get-GovTargetPhp {
     $currentDir = (Get-Location).Path
     while ($currentDir -and (Split-Path -Parent $currentDir) -ne $currentDir) {
         $wsFile = Join-Path $currentDir ".ws"
