@@ -23,8 +23,7 @@ function gov {
 
 function private:Invoke-GovDocker {
     param(
-        [Parameter(Mandatory=$true)][string]$PhpVer,
-        [Parameter(Mandatory=$true)][string]$Command,
+        [Parameter(Mandatory=$true, Position=0)][string]$PhpVer,
         [Parameter(ValueFromRemainingArguments=$true)][string[]]$CmdArgs
     )
 
@@ -51,7 +50,7 @@ function private:Invoke-GovDocker {
     }
 
     # Jalankan perintah di dalam container
-    docker exec -it -w $containerCwd $container $Command @CmdArgs
+    docker exec -it -w $containerCwd $container $CmdArgs
 }
 
 function private:Get-GovTargetPhp {
@@ -79,34 +78,34 @@ function private:Get-GovTargetPhp {
 # Smart CLI Auto-Routing berdasarkan .ws file di project
 function artisan {
     $target = Get-GovTargetPhp
-    Invoke-GovDocker -PhpVer $target -Command "php" -CmdArgs @("artisan", @args)
+    Invoke-GovDocker $target "php" "artisan" @args
 }
 
 function composer {
     $target = Get-GovTargetPhp
-    Invoke-GovDocker -PhpVer $target -Command "composer" -CmdArgs @args
+    Invoke-GovDocker $target "composer" @args
 }
 
 # Explicit PHP CLI
-function php74 { Invoke-GovDocker -PhpVer "php74" -Command "php" -CmdArgs @args }
-function php80 { Invoke-GovDocker -PhpVer "php80" -Command "php" -CmdArgs @args }
-function php81 { Invoke-GovDocker -PhpVer "php81" -Command "php" -CmdArgs @args }
-function php82 { Invoke-GovDocker -PhpVer "php82" -Command "php" -CmdArgs @args }
-function php83 { Invoke-GovDocker -PhpVer "php83" -Command "php" -CmdArgs @args }
+function php74 { Invoke-GovDocker "php74" "php" @args }
+function php80 { Invoke-GovDocker "php80" "php" @args }
+function php81 { Invoke-GovDocker "php81" "php" @args }
+function php82 { Invoke-GovDocker "php82" "php" @args }
+function php83 { Invoke-GovDocker "php83" "php" @args }
 
 # Explicit Composer CLI
-function composer74 { Invoke-GovDocker -PhpVer "php74" -Command "composer" -CmdArgs @args }
-function composer80 { Invoke-GovDocker -PhpVer "php80" -Command "composer" -CmdArgs @args }
-function composer81 { Invoke-GovDocker -PhpVer "php81" -Command "composer" -CmdArgs @args }
-function composer82 { Invoke-GovDocker -PhpVer "php82" -Command "composer" -CmdArgs @args }
-function composer83 { Invoke-GovDocker -PhpVer "php83" -Command "composer" -CmdArgs @args }
+function composer74 { Invoke-GovDocker "php74" "composer" @args }
+function composer80 { Invoke-GovDocker "php80" "composer" @args }
+function composer81 { Invoke-GovDocker "php81" "composer" @args }
+function composer82 { Invoke-GovDocker "php82" "composer" @args }
+function composer83 { Invoke-GovDocker "php83" "composer" @args }
 
 # Explicit Artisan CLI
-function artisan74 { Invoke-GovDocker -PhpVer "php74" -Command "php" -CmdArgs @("artisan", @args) }
-function artisan80 { Invoke-GovDocker -PhpVer "php80" -Command "php" -CmdArgs @("artisan", @args) }
-function artisan81 { Invoke-GovDocker -PhpVer "php81" -Command "php" -CmdArgs @("artisan", @args) }
-function artisan82 { Invoke-GovDocker -PhpVer "php82" -Command "php" -CmdArgs @("artisan", @args) }
-function artisan83 { Invoke-GovDocker -PhpVer "php83" -Command "php" -CmdArgs @("artisan", @args) }
+function artisan74 { Invoke-GovDocker "php74" "php" "artisan" @args }
+function artisan80 { Invoke-GovDocker "php80" "php" "artisan" @args }
+function artisan81 { Invoke-GovDocker "php81" "php" "artisan" @args }
+function artisan82 { Invoke-GovDocker "php82" "php" "artisan" @args }
+function artisan83 { Invoke-GovDocker "php83" "php" "artisan" @args }
 
 Write-Host "GOV-LAMP PowerShell Helpers loaded!" -ForegroundColor Green
 Write-Host "Commands available: gov, php74..83, composer74..83, artisan74..83, composer, artisan" -ForegroundColor Cyan
