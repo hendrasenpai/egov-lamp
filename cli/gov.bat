@@ -22,7 +22,8 @@ echo   [4] Matikan Semua Container gov-lamp
 echo   [5] Cek Status Container Aktif
 echo   [0] Keluar
 echo.
-set /p ACTION_CHOICE="Masukkan pilihan [0-5]: "
+set "ACTION_CHOICE="
+set /p "ACTION_CHOICE=Masukkan pilihan [0-5]: "
 
 if "%ACTION_CHOICE%"=="1" goto CHOOSE_PHP
 if "%ACTION_CHOICE%"=="2" goto START_DEFAULT
@@ -34,27 +35,43 @@ goto INVALID
 
 :CHOOSE_PHP
 echo.
-echo Pilih versi PHP yang ingin dinyalakan:
+echo Pilih versi PHP yang ingin dinyalakan (bisa lebih dari satu, contoh: 1 atau 1 4):
 echo   [1] PHP 7.4 (Port :8074)
 echo   [2] PHP 8.0 (Port :8080)
 echo   [3] PHP 8.1 (Port :8081)
 echo   [4] PHP 8.2 (Port :8082)
 echo   [5] PHP 8.3 (Port :8083)
 echo.
-set /p PHP_CHOICE="Pilih nomor versi [1-5]: "
+set "PHP_CHOICE="
+set /p "PHP_CHOICE=Pilih nomor versi [1-5]: "
+
+if not defined PHP_CHOICE goto INVALID
 
 set "TARGET_PHP="
-if "%PHP_CHOICE%"=="1" set "TARGET_PHP=php74"
-if "%PHP_CHOICE%"=="2" set "TARGET_PHP=php8"
-if "%PHP_CHOICE%"=="3" set "TARGET_PHP=php81"
-if "%PHP_CHOICE%"=="4" set "TARGET_PHP=php82"
-if "%PHP_CHOICE%"=="5" set "TARGET_PHP=php83"
+for %%v in (%PHP_CHOICE%) do (
+    if "%%v"=="1" set "TARGET_PHP=!TARGET_PHP! php74"
+    if "%%v"=="7.4" set "TARGET_PHP=!TARGET_PHP! php74"
+    if "%%v"=="74" set "TARGET_PHP=!TARGET_PHP! php74"
+    if "%%v"=="2" set "TARGET_PHP=!TARGET_PHP! php8"
+    if "%%v"=="8.0" set "TARGET_PHP=!TARGET_PHP! php8"
+    if "%%v"=="8" set "TARGET_PHP=!TARGET_PHP! php8"
+    if "%%v"=="80" set "TARGET_PHP=!TARGET_PHP! php8"
+    if "%%v"=="3" set "TARGET_PHP=!TARGET_PHP! php81"
+    if "%%v"=="8.1" set "TARGET_PHP=!TARGET_PHP! php81"
+    if "%%v"=="81" set "TARGET_PHP=!TARGET_PHP! php81"
+    if "%%v"=="4" set "TARGET_PHP=!TARGET_PHP! php82"
+    if "%%v"=="8.2" set "TARGET_PHP=!TARGET_PHP! php82"
+    if "%%v"=="82" set "TARGET_PHP=!TARGET_PHP! php82"
+    if "%%v"=="5" set "TARGET_PHP=!TARGET_PHP! php83"
+    if "%%v"=="8.3" set "TARGET_PHP=!TARGET_PHP! php83"
+    if "%%v"=="83" set "TARGET_PHP=!TARGET_PHP! php83"
+)
 
-if "%TARGET_PHP%"=="" goto INVALID
+if not defined TARGET_PHP goto INVALID
 
 echo.
-echo Menyalakan database, phpmyadmin, redis, dan %TARGET_PHP%...
-docker compose up -d database phpmyadmin redis %TARGET_PHP%
+echo Menyalakan database, phpmyadmin, redis, dan%TARGET_PHP%...
+docker compose up -d database phpmyadmin redis%TARGET_PHP%
 echo.
 echo [OK] Container berhasil dinyalakan!
 echo Dashboard Web : http://localhost:8083 (atau port PHP yang dipilih)
@@ -107,7 +124,7 @@ goto MENU
 
 :INVALID
 echo.
-echo Pilihan tidak valid!
+echo Pilihan tidak valid! Pastikan Anda memasukkan angka 1 sampai 5.
 echo.
 pause
 goto MENU
