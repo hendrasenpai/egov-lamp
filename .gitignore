@@ -1,5 +1,6 @@
 # Environment & credentials
 .env
+sample.env
 
 # Database data
 data/mysql/*
@@ -19,9 +20,25 @@ www/*
 .ws
 *.tmp
 *.log
+*.zip
+dev_build_container.sh
+todo.md
+
+# Legacy bins not part of official stack
+bin/mariadb103/
+bin/mariadb104/
+bin/mariadb105/
+bin/mysql57/
+bin/mysql8/
+bin/php54/
+bin/php56/
+bin/php71/
+bin/php72/
+bin/php73/
 
 # OS & Editor files
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
+.github/
