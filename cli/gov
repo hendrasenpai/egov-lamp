@@ -57,7 +57,7 @@ case $ACTION_CHOICE in
         for v in "${VERSIONS[@]}"; do
             case $v in
                 1) SERVICES="$SERVICES php74" ;;
-                2) SERVICES="$SERVICES php8" ;;
+                2) SERVICES="$SERVICES php80" ;;
                 3) SERVICES="$SERVICES php81" ;;
                 4) SERVICES="$SERVICES php82" ;;
                 5) SERVICES="$SERVICES php83" ;;

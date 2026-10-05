@@ -56,7 +56,7 @@ _get_gov_target_php() {
             local v=$(grep -E '^php=' "$dir/.ws" | cut -d'=' -f2 | tr -d '[:space:]')
             case "$v" in
                 7.4) echo "php74"; return ;;
-                8.0) echo "php8"; return ;;
+                8.0) echo "php80"; return ;;
                 8.1) echo "php81"; return ;;
                 8.2) echo "php82"; return ;;
                 8.3) echo "php83"; return ;;
@@ -80,21 +80,21 @@ composer() {
 
 # Explicit PHP CLI
 php74() { _run_gov_docker "php74" php "$@"; }
-php80() { _run_gov_docker "php8" php "$@"; }
+php80() { _run_gov_docker "php80" php "$@"; }
 php81() { _run_gov_docker "php81" php "$@"; }
 php82() { _run_gov_docker "php82" php "$@"; }
 php83() { _run_gov_docker "php83" php "$@"; }
 
 # Explicit Composer CLI
 composer74() { _run_gov_docker "php74" composer "$@"; }
-composer80() { _run_gov_docker "php8" composer "$@"; }
+composer80() { _run_gov_docker "php80" composer "$@"; }
 composer81() { _run_gov_docker "php81" composer "$@"; }
 composer82() { _run_gov_docker "php82" composer "$@"; }
 composer83() { _run_gov_docker "php83" composer "$@"; }
 
 # Explicit Artisan CLI
 artisan74() { _run_gov_docker "php74" php artisan "$@"; }
-artisan80() { _run_gov_docker "php8" php artisan "$@"; }
+artisan80() { _run_gov_docker "php80" php artisan "$@"; }
 artisan81() { _run_gov_docker "php81" php artisan "$@"; }
 artisan82() { _run_gov_docker "php82" php artisan "$@"; }
 artisan83() { _run_gov_docker "php83" php artisan "$@"; }
