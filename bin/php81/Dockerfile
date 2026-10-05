@@ -1,19 +1,14 @@
-FROM php:8.1-apache-bullseye
+FROM php:8.1-apache-bookworm
 
 # Surpresses debconf complaints of trying to install apt packages interactively
 # https://github.com/moby/moby/issues/4032#issuecomment-192327844
  
 ARG DEBIAN_FRONTEND=noninteractive
 
-# Fix Debian Bullseye archive mirrors (avoiding 404 on security mirrors)
-RUN echo "deb http://deb.debian.org/debian bullseye main" > /etc/apt/sources.list && \
-    echo "deb http://deb.debian.org/debian bullseye-updates main" >> /etc/apt/sources.list
-
 # Update
 RUN apt-get -y update --fix-missing && \
     apt-get --no-install-recommends install -y apt-utils && \
     rm -rf /var/lib/apt/lists/*
-
 
 # Install useful tools and install important libaries
 RUN apt-get -y update && \
@@ -39,12 +34,12 @@ openssl && \
     curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
 # Install xdebug
-RUN pecl install xdebug-3.1.4 && \
+RUN pecl install xdebug-3.2.1 && \
     docker-php-ext-enable xdebug && \
     mkdir /var/log/xdebug
 
 # Install redis
-RUN pecl install redis-5.3.3 && \
+RUN pecl install redis-5.3.7 && \
     docker-php-ext-enable redis
 
 # Install imagick
@@ -82,7 +77,6 @@ RUN docker-php-ext-install pdo_mysql && \
     docker-php-ext-install gettext && \
     docker-php-ext-install calendar && \
     docker-php-ext-install exif
-
 
 # Install Freetype 
 RUN apt-get -y update && \

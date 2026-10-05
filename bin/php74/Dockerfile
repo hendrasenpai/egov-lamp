@@ -14,7 +14,6 @@ RUN apt-get update && \
         wget \
         dialog \
         libsqlite3-dev \
-        libsqlite3-0 \
         default-mysql-client \
         zlib1g-dev \
         libzip-dev \
