@@ -5,6 +5,24 @@
 # source /path/to/gov-lamp/cli/docker-php-helpers.sh
 # ==============================================================================
 
+# Auto-detect root directory of gov-lamp (kompatibel Bash & Zsh)
+if [ -n "$BASH_SOURCE" ]; then
+    _GOV_SCRIPT_SRC="${BASH_SOURCE[0]}"
+else
+    _GOV_SCRIPT_SRC="$0"
+fi
+_GOV_ROOT="$(cd "$(dirname "$_GOV_SCRIPT_SRC")/.." 2>/dev/null && pwd)"
+[ -z "$_GOV_ROOT" ] && _GOV_ROOT="$PWD"
+
+# Shortcut Command: gov (Langsung jalankan menu interactive tanpa perlu symlink)
+gov() {
+    if [ -f "$_GOV_ROOT/cli/gov" ]; then
+        bash "$_GOV_ROOT/cli/gov" "$@"
+    else
+        echo -e "\033[0;31mError: Script launcher tidak ditemukan di $_GOV_ROOT/cli/gov\033[0m"
+    fi
+}
+
 _run_gov_docker() {
     local php_ver="$1"
     shift
@@ -13,10 +31,7 @@ _run_gov_docker() {
     # Periksa apakah container aktif
     if ! docker ps --format '{{.Names}}' | grep -q "^${container}$"; then
         echo -e "\033[1;33mContainer $container belum aktif. Menyalakan otomatis...\033[0m"
-        local script_src="${BASH_SOURCE[0]:-${(%):-%x}}"
-        local root_dir="$(cd "$(dirname "$script_src")/.." 2>/dev/null && pwd)"
-        [ -z "$root_dir" ] && root_dir="$PWD"
-        (cd "$root_dir" && docker compose up -d database "$php_ver")
+        (cd "$_GOV_ROOT" && docker compose up -d database "$php_ver")
     fi
 
     # Tentukan path relatif terhadap direktori www

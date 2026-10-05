@@ -94,27 +94,21 @@ Agar Anda bisa memanggil perintah `gov` langsung dari mana saja tanpa mengetik `
 
 ### 🐧 Untuk Linux & macOS (serta Windows WSL 2 / Git Bash)
 
-*Jalankan perintah ini saat Anda berada di dalam folder `gov-lamp` yang baru di-clone:*
+*Cukup jalankan 1 perintah ini dari dalam folder `gov-lamp` yang baru Anda clone:*
 
-1. **Buat Symlink `gov` Launcher**:
-   ```bash
-   mkdir -p ~/bin
-   ln -sf "$(pwd)/cli/gov" ~/bin/gov
-   ```
-   *(Pastikan folder `~/bin` ada di dalam `$PATH` Anda).*
+- **Pengguna macOS (Terminal Zsh)**:
+  ```zsh
+  echo "source $(pwd)/cli/docker-php-helpers.sh" >> ~/.zshrc
+  source ~/.zshrc
+  ```
 
-2. **Daftarkan Shell Helpers (`artisan`, `composer`, `fix-perms`)**:
-   - **Pengguna Linux & Git Bash** (tambahkan ke `~/.bashrc`):
-     ```bash
-     echo "source $(pwd)/cli/docker-php-helpers.sh" >> ~/.bashrc
-     source ~/.bashrc
-     ```
-   - **Pengguna macOS** (tambahkan ke `~/.zshrc`):
-     ```bash
-     echo "source $(pwd)/cli/docker-php-helpers.sh" >> ~/.zshrc
-     source ~/.zshrc
-     ```
-   Setelah itu, Anda bisa langsung mengetik `gov` dari folder mana saja!
+- **Pengguna Linux & Git Bash**:
+  ```bash
+  echo "source $(pwd)/cli/docker-php-helpers.sh" >> ~/.bashrc
+  source ~/.bashrc
+  ```
+
+*Selesai! Script ini otomatis mendaftarkan perintah `gov` (launcher), `artisan`, `composer`, `php74` s/d `php83`, dan `fix-perms` ke terminal Anda tanpa perlu membuat symlink manual.*
 
 ### 🪟 Untuk Windows Native (Command Prompt & PowerShell)
 
