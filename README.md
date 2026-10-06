@@ -578,6 +578,39 @@ docker logs -f egov-php82
 
 ---
 
+### Q6: Gagal menyimpan pengaturan di Dashboard web / Permission Denied pada `.ws`?
+**Penyebab**: Folder project di dalam `www/` baru saja di-copy ke Linux/WSL sehingga memiliki izin default `755` milik user host. Akibatnya, web server Apache di Docker (`www-data`) tidak diizinkan membuat file konfigurasi baru `.ws`.  
+**Solusi**:
+Jalankan perintah perbaikan izin otomatis:
+```bash
+fix-perms
+```
+Atau berikan izin tulis langsung ke folder `www/`:
+```bash
+chmod -R 777 ~/egov-lamp/www
+```
+
+---
+
+### Q7: Bagaimana cara membuka folder project via terminal ke Editor (VS Code & Google Antigravity)?
+- **Visual Studio Code**:
+  Masuk ke folder project di terminal lalu ketik:
+  ```bash
+  code .
+  ```
+- **Google Antigravity IDE**:
+  Sama persis seperti VS Code, Anda dapat membuka folder project langsung ke Antigravity IDE dengan perintah:
+  ```bash
+  antigravity .
+  ```
+  > *Catatan: Jika perintah `antigravity` belum terdaftar di terminal Anda: Buka Antigravity IDE ➔ Tekan `Ctrl+Shift+P` (atau `Cmd+Shift+P` di Mac) ➔ Ketik `Shell Command: Install 'antigravity' command in PATH` ➔ Tekan Enter.*
+- **Google Antigravity CLI (Agent Interaktif di Terminal)**:
+  ```bash
+  agy .
+  ```
+
+---
+
 ## 👥 Kontribusi & Pemeliharaan
 
 Environment ini dikembangkan dan dikelola khusus untuk standardisasi alur kerja tim developer di lingkungan:
