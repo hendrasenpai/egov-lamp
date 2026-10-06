@@ -22,9 +22,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $type = $_POST['type'] ?? 'auto';
     $entry = $_POST['entry'] ?? 'auto';
     $ide = preg_replace('/[^a-zA-Z0-9_\-]/', '', $_POST['ide'] ?? 'auto');
+    $icon = preg_replace('/[^a-zA-Z0-9_\-\.]/', '', $_POST['icon'] ?? 'auto');
 
     if ($project && is_dir("./$project")) {
-        $content = "php={$php}\ntype={$type}\nentry={$entry}\nide={$ide}\n";
+        $content = "php={$php}\ntype={$type}\nentry={$entry}\nide={$ide}\nicon={$icon}\n";
         $saved = @file_put_contents("./$project/.ws", $content);
         if ($saved !== false) {
             ensure_code_workspace($project);
@@ -624,6 +625,24 @@ $excluded = ['.', '..', 'assets', '.DS_Store', 'vendor', 'test_db.php', 'test_db
 $projects = [];
 $php_files = [];
 
+// Scan file gambar yang tersedia di root www untuk icon kustom
+$available_root_icons = [];
+$img_files = glob('./*.{png,jpg,jpeg,svg,ico,webp}', GLOB_BRACE) ?: [];
+foreach ($img_files as $f) {
+    $available_root_icons[] = basename($f);
+}
+sort($available_root_icons);
+
+// Cari logo resmi untuk Header Dashboard & Favicon Tab Browser
+$dashboard_logo = null;
+$logo_candidates = ['diskominfo.png', 'diskominfo.svg', 'logo.png', 'logo.svg', 'favicon.png', 'docker-mark-blue.png'];
+foreach ($logo_candidates as $cand) {
+    if (file_exists("./$cand")) {
+        $dashboard_logo = $cand;
+        break;
+    }
+}
+
 foreach ($all_items as $item) {
     if (in_array($item, $excluded)) continue;
     if (is_dir($item)) {
@@ -634,6 +653,7 @@ foreach ($all_items as $item) {
         $custom_type = 'auto';
         $custom_entry = 'auto';
         $custom_ide = 'auto';
+        $custom_icon = 'auto';
 
         if ($has_custom_ws) {
             $ws_data = parse_ini_file($ws_file);
@@ -641,6 +661,7 @@ foreach ($all_items as $item) {
             $custom_type = $ws_data['type'] ?? 'auto';
             $custom_entry = $ws_data['entry'] ?? 'auto';
             $custom_ide = $ws_data['ide'] ?? 'auto';
+            $custom_icon = $ws_data['icon'] ?? 'auto';
         }
 
         // Deteksi Tipe Framework
@@ -675,6 +696,53 @@ foreach ($all_items as $item) {
         $full_link = "http://localhost:{$target_port}/{$subpath}";
         $git_info = get_project_git_info($item);
 
+        // Resolusi Icon Project
+        $project_icon_url = null;
+        if ($type === 'Laravel') {
+            $project_icon_fallback = 'bi-layers-fill text-danger';
+        } elseif ($type === 'CodeIgniter 3') {
+            $project_icon_fallback = 'bi-fire text-warning';
+        } else {
+            $project_icon_fallback = 'bi-filetype-php text-info';
+        }
+
+        if ($custom_icon !== 'auto' && $custom_icon !== 'framework') {
+            // Custom icon dari .ws (misal: diskominfo.png atau docker-mark-blue.png)
+            if (file_exists("./$custom_icon") && @filesize("./$custom_icon") > 0) {
+                $project_icon_url = $custom_icon;
+            } elseif (file_exists("./$item/$custom_icon") && @filesize("./$item/$custom_icon") > 0) {
+                $project_icon_url = "$item/$custom_icon";
+            }
+        } elseif ($custom_icon === 'auto') {
+            // Auto-detect 1: file gambar di root bernama {item}.*
+            $matched_root = glob("./{$item}.{png,svg,jpg,jpeg,webp,ico}", GLOB_BRACE);
+            if (!empty($matched_root) && @filesize($matched_root[0]) > 0) {
+                $project_icon_url = basename($matched_root[0]);
+            } else {
+                // Auto-detect 2: favicon / logo bawaan di folder project (hanya file valid > 0 byte)
+                $search_paths = [
+                    "$item/public/logo.svg",
+                    "$item/public/logo.png",
+                    "$item/public/favicon.png",
+                    "$item/public/favicon.ico",
+                    "$item/public/assets/images/logo.svg",
+                    "$item/public/assets/images/logo.png",
+                    "$item/logo.svg",
+                    "$item/logo.png",
+                    "$item/favicon.png",
+                    "$item/favicon.ico",
+                    "$item/assets/images/logo.svg",
+                    "$item/assets/images/logo.png"
+                ];
+                foreach ($search_paths as $sp) {
+                    if (file_exists("./$sp") && @filesize("./$sp") > 0) {
+                        $project_icon_url = $sp;
+                        break;
+                    }
+                }
+            }
+        }
+
         $projects[] = [
             'name' => $item,
             'link' => $full_link,
@@ -686,6 +754,9 @@ foreach ($all_items as $item) {
             'raw_type' => $custom_type,
             'raw_entry' => $custom_entry,
             'raw_ide' => $custom_ide,
+            'raw_icon' => $custom_icon,
+            'icon_url' => $project_icon_url,
+            'icon_fallback' => $project_icon_fallback,
             'git_info' => $git_info
         ];
     } elseif (pathinfo($item, PATHINFO_EXTENSION) === 'php') {
@@ -706,6 +777,9 @@ foreach ($projects as $p) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>eGov-LAMP — Diskominfo Kabupaten Bintan</title>
+    <?php if ($dashboard_logo): ?>
+    <link rel="icon" type="image/<?= pathinfo($dashboard_logo, PATHINFO_EXTENSION) === 'svg' ? 'svg+xml' : (pathinfo($dashboard_logo, PATHINFO_EXTENSION) === 'ico' ? 'x-icon' : 'png') ?>" href="<?= htmlspecialchars($dashboard_logo) ?>">
+    <?php endif; ?>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1159,7 +1233,11 @@ foreach ($projects as $p) {
                 <!-- Brand & Stack Meta -->
                 <div class="d-flex align-items-center gap-3">
                     <div class="brand-emblem">
-                        <i class="bi bi-shield-check text-info fs-5"></i>
+                        <?php if ($dashboard_logo): ?>
+                            <img src="<?= htmlspecialchars($dashboard_logo) ?>" alt="Diskominfo" style="max-height: 28px; max-width: 28px; object-fit: contain;">
+                        <?php else: ?>
+                            <i class="bi bi-shield-check text-info fs-5"></i>
+                        <?php endif; ?>
                     </div>
                     <div>
                         <div class="d-flex align-items-center gap-2">
@@ -1266,8 +1344,13 @@ foreach ($projects as $p) {
                                         <!-- Top Row: Name & PHP Runtime Badge -->
                                         <div class="d-flex justify-content-between align-items-center mb-1 gap-2">
                                             <div class="d-flex align-items-center gap-2 min-w-0 flex-grow-1">
-                                                <span class="project-icon-box flex-shrink-0">
-                                                    <i class="bi bi-folder2 text-warning"></i>
+                                                <span class="project-icon-box flex-shrink-0" title="<?= htmlspecialchars($p['name']) ?>">
+                                                    <?php if (!empty($p['icon_url'])): ?>
+                                                        <img src="<?= htmlspecialchars($p['icon_url']) ?>" alt="Icon" class="project-card-img-icon" style="width: 18px; height: 18px; object-fit: contain; border-radius: 3px;" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline';">
+                                                        <i class="bi <?= $p['icon_fallback'] ?>" style="display: none;"></i>
+                                                    <?php else: ?>
+                                                        <i class="bi <?= $p['icon_fallback'] ?>"></i>
+                                                    <?php endif; ?>
                                                 </span>
                                                 <h6 class="card-title fw-bold mb-0 text-truncate font-monospace" title="<?= htmlspecialchars($p['name']) ?>">
                                                     <?= htmlspecialchars($p['name']) ?>
@@ -1308,7 +1391,7 @@ foreach ($projects as $p) {
                                         <div class="mt-auto d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-15">
                                             <div class="d-flex gap-1 flex-wrap">
                                                 <button class="btn btn-sm btn-card-action" 
-                                                        onclick="openSettingModal('<?= $p['name'] ?>', '<?= $p['php_version'] ?>', '<?= $p['raw_type'] ?>', '<?= $p['raw_entry'] ?>', '<?= $p['raw_ide'] ?>', <?= $p['git_info']['has_git'] ? 'true' : 'false' ?>, <?= $p['git_info']['is_github'] ? 'true' : 'false' ?>, '<?= htmlspecialchars(addslashes($p['git_info']['remote_url'])) ?>')">
+                                                        onclick="openSettingModal('<?= $p['name'] ?>', '<?= $p['php_version'] ?>', '<?= $p['raw_type'] ?>', '<?= $p['raw_entry'] ?>', '<?= $p['raw_ide'] ?>', <?= $p['git_info']['has_git'] ? 'true' : 'false' ?>, <?= $p['git_info']['is_github'] ? 'true' : 'false' ?>, '<?= htmlspecialchars(addslashes($p['git_info']['remote_url'])) ?>', '<?= htmlspecialchars(addslashes($p['raw_icon'])) ?>', '<?= htmlspecialchars(addslashes($p['icon_url'] ?? '')) ?>', '<?= htmlspecialchars(addslashes($p['icon_fallback'])) ?>')">
                                                     <i class="bi bi-gear me-1"></i>Setting
                                                 </button>
                                                 <button type="button" class="btn btn-sm btn-card-action btn-ide-vscode" title="Buka di VS Code" 
@@ -1503,6 +1586,26 @@ foreach ($projects as $p) {
                                 <option value="both">Paksa Tampilkan Keduanya</option>
                                 <option value="none">Sembunyikan Semua Tombol IDE</option>
                             </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small fw-bold">ICON / LOGO PROJECT</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <div id="settingIconPreviewBox" class="project-icon-box flex-shrink-0" style="width: 38px; height: 38px;">
+                                    <i class="bi bi-folder2 text-warning fs-5" id="settingIconPreviewIcon"></i>
+                                    <img src="" id="settingIconPreviewImg" alt="Preview" style="display: none; width: 24px; height: 24px; object-fit: contain; border-radius: 4px;">
+                                </div>
+                                <select class="form-select bg-dark text-light border-secondary" name="icon" id="selectIcon" onchange="updateSettingIconPreview()">
+                                    <option value="auto">Auto Detect (Favicon / Logo Folder Project)</option>
+                                    <?php foreach ($available_root_icons as $img): ?>
+                                        <option value="<?= htmlspecialchars($img) ?>"><?= htmlspecialchars($img) ?> (dari /www)</option>
+                                    <?php endforeach; ?>
+                                    <option value="framework">Gunakan Icon Framework Bawaan</option>
+                                </select>
+                            </div>
+                            <div class="form-text text-secondary small" style="font-size: 0.72rem;">
+                                Pilih gambar dari root <code>/www</code> atau biarkan Auto Detect membaca favicon folder project.
+                            </div>
                         </div>
 
                         <div class="mb-2 pt-3 border-top border-secondary border-opacity-50" id="settingGitStatusSection">
@@ -2077,13 +2180,62 @@ foreach ($projects as $p) {
 
         // Modal Setting Logic
         let settingModalInstance = null;
-        function openSettingModal(project, php, type, entry, ide, hasGit = false, isGithub = false, remoteUrl = '') {
+        function updateSettingIconPreview() {
+            const select = document.getElementById('selectIcon');
+            const previewImg = document.getElementById('settingIconPreviewImg');
+            const previewIcon = document.getElementById('settingIconPreviewIcon');
+            if (!select || !previewImg || !previewIcon) return;
+
+            const val = select.value;
+            const resolvedUrl = select.dataset.resolvedUrl || '';
+            const fallbackIcon = select.dataset.fallbackIcon || 'bi-folder2 text-warning';
+
+            if (val === 'framework') {
+                previewImg.style.display = 'none';
+                previewIcon.style.display = 'inline-block';
+                previewIcon.className = 'bi ' + fallbackIcon + ' fs-5';
+            } else if (val === 'auto') {
+                if (resolvedUrl) {
+                    previewImg.src = resolvedUrl;
+                    previewImg.style.display = 'inline-block';
+                    previewIcon.style.display = 'none';
+                    previewImg.onerror = function() {
+                        this.style.display = 'none';
+                        previewIcon.style.display = 'inline-block';
+                        previewIcon.className = 'bi ' + fallbackIcon + ' fs-5';
+                    };
+                } else {
+                    previewImg.style.display = 'none';
+                    previewIcon.style.display = 'inline-block';
+                    previewIcon.className = 'bi ' + fallbackIcon + ' fs-5';
+                }
+            } else {
+                previewImg.src = val;
+                previewImg.style.display = 'inline-block';
+                previewIcon.style.display = 'none';
+                previewImg.onerror = function() {
+                    this.style.display = 'none';
+                    previewIcon.style.display = 'inline-block';
+                    previewIcon.className = 'bi bi-image text-danger fs-5';
+                };
+            }
+        }
+
+        function openSettingModal(project, php, type, entry, ide, hasGit = false, isGithub = false, remoteUrl = '', icon = 'auto', resolvedIconUrl = '', fallbackIcon = 'bi-folder2 text-warning') {
             document.getElementById('modalProjectName').textContent = project;
             document.getElementById('inputProject').value = project;
             document.getElementById('selectPhp').value = php || '7.4';
             document.getElementById('selectType').value = type || 'auto';
             document.getElementById('selectEntry').value = entry || 'auto';
             document.getElementById('selectIde').value = ide || 'auto';
+
+            const selectIcon = document.getElementById('selectIcon');
+            if (selectIcon) {
+                selectIcon.value = icon || 'auto';
+                selectIcon.dataset.resolvedUrl = resolvedIconUrl || '';
+                selectIcon.dataset.fallbackIcon = fallbackIcon || 'bi-folder2 text-warning';
+                updateSettingIconPreview();
+            }
 
             const badge = document.getElementById('settingGitBadge');
             const details = document.getElementById('settingGitDetails');
