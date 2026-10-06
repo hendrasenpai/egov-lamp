@@ -159,3 +159,41 @@ fix-perms() {
     fi
     echo -e "\033[0;32mSelesai! Semua permission sudah aman.\033[0m"
 }
+
+# Integrasi Editor Google Antigravity dari dalam WSL ke Windows
+if grep -qiE "microsoft|wsl" /proc/version 2>/dev/null; then
+    antigravity() {
+        local target="${1:-.}"
+        local win_path
+        if command -v wslpath >/dev/null 2>&1; then
+            win_path=$(wslpath -w "$target" 2>/dev/null || echo "$target")
+        else
+            win_path="$target"
+        fi
+
+        # 1. Cek apakah ada binary antigravity di Windows PATH
+        if command -v antigravity.exe >/dev/null 2>&1; then
+            antigravity.exe "$win_path" 2>/dev/null &
+            return
+        elif command -v antigravity.cmd >/dev/null 2>&1; then
+            antigravity.cmd "$win_path" 2>/dev/null &
+            return
+        fi
+
+        # 2. Cek lokasi instalasi default Antigravity di Windows
+        for u in /mnt/c/Users/*; do
+            if [ -f "$u/AppData/Local/Programs/Antigravity/Antigravity.exe" ]; then
+                "$u/AppData/Local/Programs/Antigravity/Antigravity.exe" "$win_path" 2>/dev/null &
+                return
+            fi
+        done
+
+        # 3. Fallback lewat cmd.exe Windows
+        cmd.exe /c start "" antigravity "$win_path" 2>/dev/null || {
+            echo -e "\033[0;31mPerintah Antigravity tidak ditemukan di Windows PATH.\033[0m"
+            echo -e "Silakan buka Antigravity di Windows, tekan Ctrl+Shift+P, lalu pilih:"
+            echo -e "\033[1;33mShell Command: Install 'antigravity' command in PATH\033[0m"
+        }
+    }
+fi
+
