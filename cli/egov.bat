@@ -127,8 +127,7 @@ goto MENU
 
 :SETUP_PS
 echo.
-echo Memasang shortcut helpers ke profil PowerShell Anda...
-powershell -ExecutionPolicy Bypass -NoProfile -Command "$profileList = @($PROFILE, \"$HOME\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1\", \"$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1\") | Select-Object -Unique; $line = '. \"%ROOT_DIR%\cli\docker-php-helpers.ps1\"'; $done = $false; foreach ($p in $profileList) { if (-not $p) { continue }; try { $d = Split-Path -Parent $p; [System.IO.Directory]::CreateDirectory($d) | Out-Null; if (!(Test-Path $p)) { [System.IO.File]::WriteAllText($p, \"# EGOV-LAMP Helpers`r`n\") }; $txt = Get-Content $p -ErrorAction SilentlyContinue | Out-String; if ($txt -notmatch [regex]::Escape($line)) { Add-Content -Path $p -Value \"`r`n$line\" }; $done = $true } catch {} }; if ($done) { Write-Host '[OK] Shortcut helpers berhasil ditambahkan ke profil PowerShell!' -ForegroundColor Green; Write-Host 'Silakan tutup dan buka kembali PowerShell Anda, atau ketik: . $PROFILE' -ForegroundColor Cyan } else { Write-Host '[ERROR] Gagal memasang ke profil PowerShell.' -ForegroundColor Red }"
+powershell -ExecutionPolicy Bypass -NoProfile -File "%ROOT_DIR%\cli\install-shortcut.ps1"
 echo.
 pause
 goto MENU
