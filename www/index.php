@@ -116,6 +116,8 @@ function run_laravel_auto_setup($dir, $repo, $options, &$steps = []) {
                 $env = preg_replace('/^DB_PASSWORD=.*/m', 'DB_PASSWORD=tiger', $env);
                 $env = preg_replace('/^DB_DATABASE=.*/m', "DB_DATABASE={$clean_db}", $env);
                 $env = preg_replace('/^REDIS_HOST=.*/m', 'REDIS_HOST=redis', $env);
+                $app_name = ucwords(str_replace(['_', '-'], ' ', trim($repo)));
+                $env = preg_replace('/^APP_NAME=.*/m', "APP_NAME=\"{$app_name}\"", $env);
                 @file_put_contents("$dir/.env", $env);
             }
         }

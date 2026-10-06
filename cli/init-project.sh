@@ -148,10 +148,10 @@ if [ -f "$TARGET_DIR/.env.example" ] && [ ! -f "$TARGET_DIR/.env" ]; then
     sed -i 's/^DB_PORT=.*/DB_PORT=3306/' "$TARGET_DIR/.env"
     sed -i 's/^DB_USERNAME=.*/DB_USERNAME=root/' "$TARGET_DIR/.env"
     sed -i 's/^DB_PASSWORD=.*/DB_PASSWORD=tiger/' "$TARGET_DIR/.env"
-    sed -i "s/^DB_DATABASE=.*/DB_DATABASE=$DB_SAFE_NAME/" "$TARGET_DIR/.env"
-    sed -i "s/^APP_NAME=.*/APP_NAME=$PROJECT_NAME/" "$TARGET_DIR/.env"
+    APP_NAME_FORMATTED=$(echo "$PROJECT_NAME" | sed 's/[_-]/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1')
+    sed -i "s/^APP_NAME=.*/APP_NAME=\"$APP_NAME_FORMATTED\"/" "$TARGET_DIR/.env"
     sed -i 's/^REDIS_HOST=.*/REDIS_HOST=redis/' "$TARGET_DIR/.env"
-    echo -e "${GREEN}✔ File .env dikonfigurasi untuk MariaDB Docker (DB: $DB_SAFE_NAME).${NC}"
+    echo -e "${GREEN}✔ File .env dikonfigurasi untuk MariaDB Docker (DB: $DB_SAFE_NAME, App: $APP_NAME_FORMATTED).${NC}"
 fi
 
 echo -e "${YELLOW}Membuat database MariaDB '$DB_SAFE_NAME'...${NC}"

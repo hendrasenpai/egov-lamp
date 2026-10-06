@@ -149,7 +149,9 @@ if [ -f "$TARGET_DIR/.env.example" ] && [ ! -f "$TARGET_DIR/.env" ]; then
         sed -i 's/^DB_PASSWORD=.*/DB_PASSWORD=tiger/' "$TARGET_DIR/.env"
         sed -i "s/^DB_DATABASE=.*/DB_DATABASE=$DB_SAFE_NAME/" "$TARGET_DIR/.env"
         sed -i 's/^REDIS_HOST=.*/REDIS_HOST=redis/' "$TARGET_DIR/.env"
-        echo -e "${GREEN}✔ File .env dibuat otomatis (DB_HOST=database, user=root, DB=$DB_SAFE_NAME)!${NC}"
+        APP_NAME_FORMATTED=$(echo "$REPO_NAME" | sed 's/[_-]/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1')
+        sed -i "s/^APP_NAME=.*/APP_NAME=\"$APP_NAME_FORMATTED\"/" "$TARGET_DIR/.env"
+        echo -e "${GREEN}✔ File .env dibuat otomatis (DB_HOST=database, user=root, DB=$DB_SAFE_NAME, App: $APP_NAME_FORMATTED)!${NC}"
 
         # Buat database MariaDB secara otomatis
         (cd "$ROOT_DIR" && docker compose exec -T database mysql -u root -ptiger -e "CREATE DATABASE IF NOT EXISTS \`$DB_SAFE_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || true)
