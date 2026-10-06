@@ -496,26 +496,33 @@ Jika Anda menggunakan aplikasi manajemen database di laptop Anda:
 
 ## 🎛️ Konfigurasi Project (.ws) & Dashboard Web
 
-Dashboard web `egov-lamp` dilengkapi dengan sistem kartu interaktif untuk setiap folder yang ada di dalam `www/`:
+Dashboard web `egov-lamp` (tersedia di port `8074`, `8080`, `8081`, `8082`, dan `8083`) dilengkapi dengan sistem tab interaktif, penjelajah repository GitHub, dan integrasi IDE modern:
 
 ```text
-┌──────────────────────────────────────────────┐
-│  📁 b-smart                    [🟢 PHP 8.2] │
-│  Laravel Application                         │
-│  ────────────────────────────────────────── │
-│  [ 🚀 Buka ]    [ < / > VS Code ]   [ ⚙️ ]  │
-└──────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│ [📁 Project Lokal (12)]   [☁️ GitHub Repo (4)]    [ 🔍 Cari... ]  [🔑] │
+├────────────────────────────────────────────────────────────────────────┤
+│ ┌──────────────────────────────────┐  ┌──────────────────────────────┐ │
+│ │ 📁 b-smart          [🟢 PHP 8.2] │  │ ☁️ web_disnaker     [Public] │ │
+│ │ Laravel Application              │  │ Web resmi Disnaker Bintan    │ │
+│ │ ──────────────────────────────── │  │ ──────────────────────────── │ │
+│ │ [⚙️ Setting] [</> Code] [🪐 IDE] │  │ [GitHub ↗] [📋 CLI] [⬇ Clone]│ │
+│ │                         [🚀 Buka]│  │                              │ │
+│ └──────────────────────────────────┘  └──────────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-1. **Live Health Indicator**:
-   Titik di sudut kanan kartu menampilkan status real-time container PHP target (`🟢 Hijau` = Aktif & siap diakses, `🔴 Merah` = Container sedang mati). Jika Anda mengeklik **Buka** saat kontainer mati, dashboard akan memberi tahu Anda agar tidak terjadi error koneksi.
-2. **Tombol `< / > VS Code`**:
-   Membuka project langsung ke aplikasi Visual Studio Code di komputer host Anda menggunakan URI handler `vscode://file/...`.
-3. **Modal `⚙️ Setting`**:
-   Mengatur file konfigurasi `.ws` secara visual tanpa harus mengedit file teks:
-   - Pilihan Versi PHP (`7.4`, `8.0`, `8.1`, `8.2`, `8.3`)
-   - Tipe Framework (`laravel`, `ci3`, `native`)
-   - Direktori Entry (`public` untuk Laravel, `.` untuk CI3/Native)
+### 1. Tab "Project Lokal"
+- **Live Health Indicator**: Titik di sudut kanan kartu menampilkan status real-time container PHP target (`🟢 Hijau` = Aktif & siap diakses, `🔴 Merah` = Container sedang mati).
+- **Tombol `🪐 Antigravity`**: Membuka project langsung ke **Google Antigravity IDE** (`antigravity://file...`) dan otomatis menyalin perintah terminal `antigravity www/<project>` ke clipboard sebagai fallback instan!
+- **Tombol `</> VS Code`**: Membuka project langsung ke Visual Studio Code host (`vscode://file...`).
+- **Modal `⚙️ Setting`**: Mengatur file konfigurasi `.ws` secara visual tanpa harus mengedit file teks (versi PHP, framework, dan entry path).
+
+### 2. Tab "GitHub Repo" (Integrasi Organisasi tim-it-diskominfobintan)
+- **Auto-Discovery Uncloned Repos**: Menampilkan daftar repository dari GitHub organisasi yang belum ada di folder `www/` lokal Anda secara otomatis.
+- **1-Click Clone dari Web**: Klik tombol **`Clone`**, pilih versi PHP target (7.4 - 8.3), dan sistem akan langsung melakukan clone, men-generate file `.ws`, membuat file `.env` dengan kredensial database MariaDB Docker, serta mengonfigurasi permission folder secara otomatis!
+- **Kunci Token (🔑)**: Mendukung penyimpanan GitHub Personal Access Token (PAT) secara aman di `.github_token` lokal untuk menampilkan repositori **Private** organisasi dan menaikkan batas rate limit GitHub API (dari 60 menjadi 5.000 request/jam).
+- **Pencarian Real-Time**: Kolom pencarian di kanan atas dapat menyaring project lokal maupun repository remote GitHub secara cepat.
 
 Format file `.ws`:
 ```ini

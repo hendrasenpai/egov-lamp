@@ -1,7 +1,19 @@
 <?php
 // Workspace GOV - Modern Dashboard Landing Page with Live Container Status & Project Settings
 
-// Handle API Save Setting (.ws)
+function get_github_config() {
+    $token = '';
+    if (file_exists('./.github_token')) {
+        $token = trim(@file_get_contents('./.github_token'));
+    }
+    if (empty($token)) {
+        $token = getenv('GITHUB_TOKEN') ?: '';
+    }
+    $org = getenv('GITHUB_ORG') ?: 'tim-it-diskominfobintan';
+    return ['token' => $token, 'org' => $org];
+}
+
+// 1. Handle API Save Setting (.ws)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_setting') {
     if (ob_get_level()) ob_clean();
     header('Content-Type: application/json');
@@ -24,6 +36,189 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+// 2. Handle API Get GitHub Repositories
+if (isset($_GET['action']) && $_GET['action'] === 'get_github_repos') {
+    if (ob_get_level()) ob_clean();
+    header('Content-Type: application/json');
+    $config = get_github_config();
+    $cache_file = './.github_cache.json';
+    $force = isset($_GET['force']) && $_GET['force'] === '1';
+
+    $data = null;
+    if (!$force && file_exists($cache_file) && (time() - filemtime($cache_file) < 600)) {
+        $data = json_decode(@file_get_contents($cache_file), true);
+    }
+
+    if (!$data) {
+        $url = "https://api.github.com/orgs/{$config['org']}/repos?per_page=100&sort=updated";
+        $headers = [
+            'User-Agent: egov-lamp-dashboard',
+            'Accept: application/vnd.github.v3+json'
+        ];
+        if (!empty($config['token'])) {
+            $headers[] = 'Authorization: Bearer ' . $config['token'];
+        }
+        
+        $opts = [
+            'http' => [
+                'method' => 'GET',
+                'header' => $headers,
+                'timeout' => 12,
+                'ignore_errors' => true
+            ]
+        ];
+        $context = stream_context_create($opts);
+        $response = @file_get_contents($url, false, $context);
+        
+        if ($response) {
+            $json = json_decode($response, true);
+            if (is_array($json) && !isset($json['message'])) {
+                $data = $json;
+                @file_put_contents($cache_file, $response);
+            } else {
+                $err = $json['message'] ?? 'Gagal mengambil data dari GitHub.';
+                echo json_encode([
+                    'success' => false,
+                    'message' => $err,
+                    'rate_limit' => strpos($err, 'rate limit') !== false,
+                    'has_token' => !empty($config['token']),
+                    'org' => $config['org']
+                ]);
+                exit;
+            }
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Tidak dapat terhubung ke GitHub API.']);
+            exit;
+        }
+    }
+
+    // Filter repo yang belum di-clone
+    $local_items = scandir('./');
+    $available_repos = [];
+    $cloned_count = 0;
+
+    foreach ($data as $repo) {
+        $name = $repo['name'] ?? '';
+        if (!$name || $name === '.github') continue;
+        if (in_array($name, $local_items) && is_dir("./$name")) {
+            $cloned_count++;
+        } else {
+            $available_repos[] = [
+                'name' => $name,
+                'full_name' => $repo['full_name'] ?? '',
+                'description' => $repo['description'] ?? 'Tidak ada deskripsi repository.',
+                'language' => $repo['language'] ?? 'PHP',
+                'is_private' => !empty($repo['private']),
+                'clone_url' => $repo['clone_url'] ?? '',
+                'ssh_url' => $repo['ssh_url'] ?? '',
+                'html_url' => $repo['html_url'] ?? '',
+                'stars' => $repo['stargazers_count'] ?? 0,
+                'updated_at' => date('d M Y', strtotime($repo['updated_at'] ?? 'now'))
+            ];
+        }
+    }
+
+    echo json_encode([
+        'success' => true,
+        'org' => $config['org'],
+        'has_token' => !empty($config['token']),
+        'total_remote' => count($data),
+        'total_uncloned' => count($available_repos),
+        'total_cloned' => $cloned_count,
+        'repos' => $available_repos
+    ]);
+    exit;
+}
+
+// 3. Handle API Clone Repository
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'clone_repo') {
+    if (ob_get_level()) ob_clean();
+    header('Content-Type: application/json');
+    $repo = preg_replace('/[^a-zA-Z0-9_\-]/', '', $_POST['repo'] ?? '');
+    $php = preg_replace('/[^0-9.]/', '', $_POST['php'] ?? '8.2');
+    $config = get_github_config();
+
+    if (!$repo) {
+        echo json_encode(['success' => false, 'message' => 'Nama repository tidak valid.']);
+        exit;
+    }
+
+    if (is_dir("./$repo")) {
+        echo json_encode(['success' => false, 'message' => "Folder www/{$repo} sudah ada di lokal!"]);
+        exit;
+    }
+
+    if (!empty($config['token'])) {
+        $clone_url = "https://oauth2:{$config['token']}@github.com/{$config['org']}/{$repo}.git";
+    } else {
+        $clone_url = "https://github.com/{$config['org']}/{$repo}.git";
+    }
+
+    $output = [];
+    $return_var = 0;
+    exec("git clone " . escapeshellarg($clone_url) . " " . escapeshellarg("./$repo") . " 2>&1", $output, $return_var);
+
+    if ($return_var !== 0) {
+        $msg = implode("\n", $output);
+        if (!empty($config['token'])) {
+            $msg = str_replace($config['token'], '***', $msg);
+        }
+        echo json_encode(['success' => false, 'message' => "Gagal clone: $msg"]);
+        exit;
+    }
+
+    // Set versi PHP di .ws
+    $content = "php={$php}\ntype=auto\nentry=auto\n";
+    @file_put_contents("./$repo/.ws", $content);
+    @chmod("./$repo/.ws", 0666);
+
+    // Setup .env jika ada .env.example
+    if (file_exists("./$repo/.env.example") && !file_exists("./$repo/.env")) {
+        $env = @file_get_contents("./$repo/.env.example");
+        if ($env) {
+            $env = preg_replace('/^DB_HOST=.*/m', 'DB_HOST=database', $env);
+            $env = preg_replace('/^DB_PORT=.*/m', 'DB_PORT=3306', $env);
+            $env = preg_replace('/^DB_USERNAME=.*/m', 'DB_USERNAME=root', $env);
+            $env = preg_replace('/^DB_PASSWORD=.*/m', 'DB_PASSWORD=tiger', $env);
+            $env = preg_replace('/^DB_DATABASE=.*/m', "DB_DATABASE={$repo}", $env);
+            $env = preg_replace('/^REDIS_HOST=.*/m', 'REDIS_HOST=redis', $env);
+            @file_put_contents("./$repo/.env", $env);
+        }
+    }
+
+    // Fix permissions
+    @chmod("./$repo", 0777);
+    if (is_dir("./$repo/storage")) {
+        exec("chmod -R 777 " . escapeshellarg("./$repo/storage") . " 2>/dev/null");
+    }
+    if (is_dir("./$repo/bootstrap/cache")) {
+        exec("chmod -R 777 " . escapeshellarg("./$repo/bootstrap/cache") . " 2>/dev/null");
+    }
+
+    @unlink('./.github_cache.json');
+
+    echo json_encode([
+        'success' => true,
+        'message' => "Project {$repo} berhasil di-clone dengan PHP {$php}!"
+    ]);
+    exit;
+}
+
+// 4. Handle API Save GitHub Token
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_token') {
+    if (ob_get_level()) ob_clean();
+    header('Content-Type: application/json');
+    $token = trim($_POST['token'] ?? '');
+    if ($token) {
+        @file_put_contents('./.github_token', $token);
+    } else {
+        @unlink('./.github_token');
+    }
+    @unlink('./.github_cache.json');
+    echo json_encode(['success' => true]);
+    exit;
+}
+
 $php_version = phpversion();
 $apache_version = function_exists('apache_get_version') ? apache_get_version() : 'Apache Server';
 $pma_port = getenv('PMA_PORT') ?: '8888';
@@ -39,7 +234,7 @@ $php_port_map = [
 
 // Scan active project directories
 $all_items = scandir('./');
-$excluded = ['.', '..', 'assets', '.DS_Store', 'vendor', 'test_db.php', 'test_db_pdo.php', 'phpinfo.php', 'index.php', 'favicon.png', 'composer.json', 'composer.lock'];
+$excluded = ['.', '..', 'assets', '.DS_Store', 'vendor', 'test_db.php', 'test_db_pdo.php', 'phpinfo.php', 'index.php', 'favicon.png', 'composer.json', 'composer.lock', '.github_cache.json', '.github_token'];
 $projects = [];
 $php_files = [];
 
@@ -137,6 +332,17 @@ foreach ($all_items as $item) {
         .status-online { background-color: #22c55e; box-shadow: 0 0 8px #22c55e; }
         .status-offline { background-color: #64748b; }
         .status-active-port { border-color: #38bdf8 !important; color: #38bdf8 !important; }
+
+        /* Custom buttons & tabs */
+        .btn-outline-purple { color: #c084fc; border-color: #a855f7; }
+        .btn-outline-purple:hover { background-color: #a855f7; color: #fff; }
+        .badge-private { background-color: #f59e0b; color: #000; }
+        .badge-public { background-color: #06b6d4; color: #000; }
+        .nav-pills .nav-link { color: #94a3b8; border-radius: 8px; font-weight: 500; }
+        .nav-pills .nav-link:hover { color: #f8fafc; }
+        .nav-pills .nav-link.active { background-color: #0284c7; color: #fff; }
+        .repo-card { transition: transform 0.15s ease, border-color 0.15s ease; background-color: #1e293b; border: 1px solid #334155; }
+        .repo-card:hover { transform: translateY(-3px); border-color: #38bdf8; }
     </style>
 </head>
 <body>
@@ -189,59 +395,129 @@ foreach ($all_items as $item) {
     <div class="container-fluid px-4">
         <div class="row g-4">
             
-            <!-- Left Column: Project List -->
+            <!-- Left Column: Project & GitHub Explorer -->
             <div class="col-lg-8">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="fw-semibold mb-0"><i class="bi bi-folder2-open me-2 text-warning"></i>Daftar Project (<?= count($projects) ?>)</h5>
-                    <div class="w-50">
-                        <div class="input-group">
+                <!-- Navigation Tabs & Toolbar -->
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <ul class="nav nav-pills" id="projectTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active py-1 px-3" id="tab-local" data-bs-toggle="pill" data-bs-target="#pane-local" type="button" role="tab">
+                                <i class="bi bi-folder2-open me-1 text-warning"></i>Project Lokal <span class="badge bg-secondary ms-1"><?= count($projects) ?></span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link py-1 px-3" id="tab-github" data-bs-toggle="pill" data-bs-target="#pane-github" type="button" role="tab" onclick="loadGitHubRepos()">
+                                <i class="bi bi-github me-1 text-light"></i>GitHub Repo <span class="badge bg-info text-dark ms-1" id="githubUnclonedCount">...</span>
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="input-group input-group-sm" style="max-width: 230px;">
                             <span class="input-group-text bg-transparent border-secondary border-opacity-25 text-secondary"><i class="bi bi-search"></i></span>
-                            <input type="text" id="projectSearch" class="form-control search-box" placeholder="Cari nama project...">
+                            <input type="text" id="projectSearch" class="form-control search-box" placeholder="Cari project...">
                         </div>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="refreshActiveTab()" title="Muat ulang">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="openTokenModal()" title="Pengaturan GitHub Token">
+                            <i class="bi bi-key"></i>
+                        </button>
                     </div>
                 </div>
 
-                <div class="row g-3" id="projectGrid">
-                    <?php foreach ($projects as $p): ?>
-                        <div class="col-md-6 project-item" data-name="<?= strtolower($p['name']) ?>" data-php-port="<?= $p['port'] ?>" data-php-ver="<?= $p['php_version'] ?>">
-                            <div class="card project-card h-100 p-3">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <h6 class="card-title fw-bold mb-0 text-truncate font-monospace" style="max-width: 55%;">
-                                        <?= htmlspecialchars($p['name']) ?>
-                                    </h6>
-                                    <div class="d-flex gap-1 align-items-center flex-wrap justify-content-end">
-                                        <span class="badge bg-dark border border-secondary text-info font-monospace" style="font-size: 0.68rem;" id="port-status-<?= $p['name'] ?>" title="Port PHP <?= $p['port'] ?>">
-                                            <span class="status-dot status-offline" id="card-dot-<?= $p['name'] ?>"></span>PHP <?= $p['php_version'] ?>
-                                        </span>
-                                        <?php
-                                            $badge_class = 'bg-secondary';
-                                            if ($p['type'] === 'Laravel') $badge_class = 'badge-laravel';
-                                            elseif (strpos($p['type'], 'CodeIgniter') !== false) $badge_class = 'badge-ci';
-                                        ?>
-                                        <span class="badge <?= $badge_class ?> text-white" style="font-size: 0.68rem;">
-                                            <?= $p['type'] ?>
-                                        </span>
+                <!-- Tab Content -->
+                <div class="tab-content" id="projectTabsContent">
+                    <!-- Tab Pane 1: Local Projects -->
+                    <div class="tab-pane fade show active" id="pane-local" role="tabpanel">
+                        <div class="row g-3" id="projectGrid">
+                            <?php foreach ($projects as $p): ?>
+                                <div class="col-md-6 project-item" data-name="<?= strtolower($p['name']) ?>" data-php-port="<?= $p['port'] ?>" data-php-ver="<?= $p['php_version'] ?>">
+                                    <div class="card project-card h-100 p-3">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <h6 class="card-title fw-bold mb-0 text-truncate font-monospace" style="max-width: 55%;">
+                                                <?= htmlspecialchars($p['name']) ?>
+                                            </h6>
+                                            <div class="d-flex gap-1 align-items-center flex-wrap justify-content-end">
+                                                <span class="badge bg-dark border border-secondary text-info font-monospace" style="font-size: 0.68rem;" id="port-status-<?= $p['name'] ?>" title="Port PHP <?= $p['port'] ?>">
+                                                    <span class="status-dot status-offline" id="card-dot-<?= $p['name'] ?>"></span>PHP <?= $p['php_version'] ?>
+                                                </span>
+                                                <?php
+                                                    $badge_class = 'bg-secondary';
+                                                    if ($p['type'] === 'Laravel') $badge_class = 'badge-laravel';
+                                                    elseif (strpos($p['type'], 'CodeIgniter') !== false) $badge_class = 'badge-ci';
+                                                ?>
+                                                <span class="badge <?= $badge_class ?> text-white" style="font-size: 0.68rem;">
+                                                    <?= $p['type'] ?>
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="mt-auto d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
+                                            <div class="d-flex gap-1 flex-wrap">
+                                                <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" 
+                                                        onclick="openSettingModal('<?= $p['name'] ?>', '<?= $p['php_version'] ?>', '<?= $p['raw_type'] ?>', '<?= $p['raw_entry'] ?>')">
+                                                    <i class="bi bi-gear me-1"></i>Setting
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-info py-0 px-2" style="font-size: 0.75rem;" title="Buka di VS Code" 
+                                                        onclick="openInVSCode('<?= htmlspecialchars($p['name']) ?>')">
+                                                    <i class="bi bi-code-slash me-1"></i>VS Code
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-purple py-0 px-2" style="font-size: 0.75rem;" title="Buka di Antigravity IDE" 
+                                                        onclick="openInAntigravity('<?= htmlspecialchars($p['name']) ?>')">
+                                                    <i class="bi bi-rocket-takeoff me-1"></i>Antigravity
+                                                </button>
+                                            </div>
+                                            <a href="<?= htmlspecialchars($p['link']) ?>" target="_blank" class="btn btn-sm btn-outline-primary py-1 px-3 ms-1"
+                                               onclick="return checkContainerBeforeOpen(event, '<?= $p['port'] ?>', '<?= $p['php_version'] ?>')">
+                                                Buka <i class="bi bi-box-arrow-up-right ms-1"></i>
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="mt-auto d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
-                                    <div class="d-flex gap-1">
-                                        <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" 
-                                                onclick="openSettingModal('<?= $p['name'] ?>', '<?= $p['php_version'] ?>', '<?= $p['raw_type'] ?>', '<?= $p['raw_entry'] ?>')">
-                                            <i class="bi bi-gear me-1"></i>Setting
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-info py-0 px-2" style="font-size: 0.75rem;" title="Buka di VS Code" 
-                                                onclick="openInVSCode('<?= htmlspecialchars($p['name']) ?>')">
-                                            <i class="bi bi-code-slash me-1"></i>VS Code
-                                        </button>
-                                    </div>
-                                    <a href="<?= htmlspecialchars($p['link']) ?>" target="_blank" class="btn btn-sm btn-outline-primary py-1 px-3"
-                                       onclick="return checkContainerBeforeOpen(event, '<?= $p['port'] ?>', '<?= $p['php_version'] ?>')">
-                                        Buka <i class="bi bi-box-arrow-up-right ms-1"></i>
-                                    </a>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+
+                    <!-- Tab Pane 2: GitHub Repositories -->
+                    <div class="tab-pane fade" id="pane-github" role="tabpanel">
+                        <!-- Token Notice when PAT is not set -->
+                        <div id="githubTokenNotice" class="alert alert-secondary d-flex align-items-center justify-content-between py-2 px-3 mb-3 d-none">
+                            <div class="small">
+                                <i class="bi bi-info-circle text-info me-1"></i>
+                                <span>Menampilkan repositori publik. Masukkan <strong>GitHub Token</strong> untuk mengakses repositori privat organisasi.</span>
+                            </div>
+                            <button class="btn btn-sm btn-outline-info py-0 px-2 ms-2" onclick="openTokenModal()">
+                                <i class="bi bi-key-fill me-1"></i>Atur Token
+                            </button>
+                        </div>
+
+                        <div id="githubLoading" class="text-center py-5">
+                            <div class="spinner-border text-info" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="text-secondary small mt-2">Mengambil daftar repository dari GitHub organisasi...</p>
+                        </div>
+                        <div id="githubEmpty" class="text-center py-5 d-none">
+                            <i class="bi bi-check-circle-fill text-success fs-1" id="githubEmptyIcon"></i>
+                            <h6 class="mt-3 fw-bold" id="githubEmptyTitle">Semua Repository Sudah Di-clone!</h6>
+                            <p class="text-secondary small mb-2" id="githubEmptyDesc">Semua project dari organisasi GitHub sudah ada di folder <code>www/</code> lokal Anda.</p>
+                            <button class="btn btn-sm btn-outline-info d-none" id="githubEmptyBtn" onclick="openTokenModal()">
+                                <i class="bi bi-key-fill me-1"></i>Masukkan GitHub Token
+                            </button>
+                        </div>
+                        <div id="githubError" class="alert alert-warning d-none" role="alert">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div>
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                    <span id="githubErrorMsg"></span>
                                 </div>
+                                <button class="btn btn-sm btn-outline-warning" onclick="openTokenModal()">Atur Token</button>
                             </div>
                         </div>
-                    <?php endforeach; ?>
+                        <div class="row g-3" id="githubGrid">
+                            <!-- Injected dynamically via JS -->
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -341,6 +617,84 @@ foreach ($all_items as $item) {
         </div>
     </div>
 
+    <!-- Modal Clone Repo -->
+    <div class="modal fade" id="cloneModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark border-secondary text-light">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title"><i class="bi bi-cloud-arrow-down-fill me-2 text-info"></i>Clone Project: <span id="cloneModalRepoName" class="text-warning font-monospace"></span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="cloneRepoName">
+                    <input type="hidden" id="cloneRepoUrl">
+                    <p class="text-secondary small mb-3">
+                        Project akan di-clone langsung ke folder <code>www/<span id="cloneTargetFolder"></span></code> dan dikonfigurasi otomatis.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-bold">PILIH VERSI PHP AWAL</label>
+                        <select class="form-select bg-dark text-light border-secondary" id="cloneSelectPhp">
+                            <option value="7.4">PHP 7.4 (Port 8074) - Rekomendasi Legacy / CI3</option>
+                            <option value="8.0">PHP 8.0 (Port 8080)</option>
+                            <option value="8.1">PHP 8.1 (Port 8081)</option>
+                            <option value="8.2">PHP 8.2 (Port 8082)</option>
+                            <option value="8.3" selected>PHP 8.3 (Port 8083) - Rekomendasi Laravel Terbaru</option>
+                        </select>
+                        <small class="text-muted">Versi PHP bisa diubah kapan saja di tombol 'Setting'.</small>
+                    </div>
+                    <div id="cloneAlert" class="alert d-none small mb-0 py-2"></div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btnCancelClone">Batal</button>
+                    <button type="button" class="btn btn-success" id="btnConfirmClone" onclick="executeClone()">
+                        <i class="bi bi-cloud-download me-1"></i> Mulai Clone
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal GitHub Token -->
+    <div class="modal fade" id="githubTokenModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark border-secondary text-light">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title"><i class="bi bi-key-fill me-2 text-info"></i>Pengaturan GitHub Token</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-secondary mb-3">
+                        Token GitHub (Personal Access Token) digunakan untuk mengakses private repository organisasi dan menaikkan batas rate limit GitHub API dari 60 menjadi 5.000 request/jam.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-bold">GITHUB PERSONAL ACCESS TOKEN (PAT)</label>
+                        <input type="password" class="form-control bg-dark text-light border-secondary font-monospace" id="inputGithubToken" placeholder="ghp_xxxxxxxxxxxx atau github_pat_xxxx">
+                        <div class="form-text text-secondary small">
+                            Minimal hak akses (scope): <code>repo</code> atau <code>read:org</code>. Kosongkan jika ingin menghapus token.
+                        </div>
+                    </div>
+                    <div class="alert alert-info py-2 small mb-0">
+                        <i class="bi bi-info-circle me-1"></i> Token disimpan secara aman di file <code>.github_token</code> lokal (terdaftar di <code>.gitignore</code>).
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                    <button type="button" class="btn btn-primary" id="btnSaveGithubToken" onclick="saveGithubToken()">Simpan Token</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
+        <div id="actionToast" class="toast align-items-center text-bg-dark border-secondary" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toastMessage"></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const currentPort = window.location.port || '80';
@@ -422,18 +776,42 @@ foreach ($all_items as $item) {
             return true;
         }
         
-        // Search filter
+        // Enhanced Search Filter (Local Projects & GitHub Repos)
         document.getElementById('projectSearch').addEventListener('input', function(e) {
-            const query = e.target.value.toLowerCase();
+            const query = e.target.value.toLowerCase().trim();
+            // Filter Local Projects
             document.querySelectorAll('.project-item').forEach(item => {
-                const name = item.getAttribute('data-name');
-                if (name.includes(query)) {
-                    item.style.display = '';
-                } else {
-                    item.style.display = 'none';
-                }
+                const name = item.getAttribute('data-name') || '';
+                item.style.display = name.includes(query) ? '' : 'none';
+            });
+            // Filter GitHub Repos
+            document.querySelectorAll('.github-repo-item').forEach(item => {
+                const name = item.getAttribute('data-name') || '';
+                item.style.display = name.includes(query) ? '' : 'none';
             });
         });
+
+        // Toast Helper
+        function showToast(message) {
+            const toastEl = document.getElementById('actionToast');
+            const toastMsg = document.getElementById('toastMessage');
+            if (toastEl && toastMsg) {
+                toastMsg.innerHTML = message;
+                const toast = bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 4000 });
+                toast.show();
+            }
+        }
+
+        // HTML Escape Helper
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
 
         // Modal Setting Logic
         let settingModalInstance = null;
@@ -477,10 +855,12 @@ foreach ($all_items as $item) {
                 btn.textContent = 'Simpan Pengaturan';
             });
         }
+
+        // Open in VS Code
         function openInVSCode(projectName) {
             let hostPath = localStorage.getItem('egov_host_path') || localStorage.getItem('gov_host_path');
             if (!hostPath) {
-                hostPath = prompt("Untuk integrasi VS Code, masukkan path absolut folder 'www' di laptop Anda:\n(Contoh: /home/username/workspace/egov/www)", "");
+                hostPath = prompt("Untuk integrasi VS Code / Antigravity, masukkan path absolut folder 'www' di laptop Anda:\n(Contoh WSL: /home/hendra/workspace/egov/www)", "");
                 if (hostPath) {
                     hostPath = hostPath.trim().replace(/\/+$/, '');
                     localStorage.setItem('egov_host_path', hostPath);
@@ -489,7 +869,279 @@ foreach ($all_items as $item) {
                 }
             }
             window.location.href = `vscode://file${hostPath}/${projectName}`;
+            showToast(`<i class="bi bi-code-slash text-info me-2"></i>Membuka <strong>${projectName}</strong> di VS Code...`);
         }
+
+        // Open in Antigravity IDE
+        function openInAntigravity(projectName) {
+            let hostPath = localStorage.getItem('egov_host_path') || localStorage.getItem('gov_host_path');
+            if (!hostPath) {
+                hostPath = prompt("Untuk integrasi Antigravity IDE / VS Code, masukkan path absolut folder 'www' di laptop Anda:\n(Contoh WSL: /home/hendra/workspace/egov/www)", "");
+                if (hostPath) {
+                    hostPath = hostPath.trim().replace(/\/+$/, '');
+                    localStorage.setItem('egov_host_path', hostPath);
+                } else {
+                    return;
+                }
+            }
+            // Trigger Antigravity URL Scheme
+            window.location.href = `antigravity://file${hostPath}/${projectName}`;
+
+            // Auto copy terminal command for instant fallback
+            const cliCmd = `antigravity www/${projectName}`;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(cliCmd).catch(() => {});
+            }
+            showToast(`<i class="bi bi-rocket-takeoff text-purple me-2"></i>Membuka Antigravity IDE untuk <strong>${projectName}</strong>...<br><span class="text-secondary small font-monospace">CLI: ${cliCmd} (disalin)</span>`);
+        }
+
+        // GitHub Explorer State & Functions
+        let githubLoaded = false;
+        let cloneModalInstance = null;
+        let tokenModalInstance = null;
+
+        function refreshActiveTab() {
+            const githubTab = document.getElementById('tab-github');
+            if (githubTab && githubTab.classList.contains('active')) {
+                loadGitHubRepos(true);
+            } else {
+                location.reload();
+            }
+        }
+
+        function loadGitHubRepos(force = false) {
+            const loadingEl = document.getElementById('githubLoading');
+            const emptyEl = document.getElementById('githubEmpty');
+            const errorEl = document.getElementById('githubError');
+            const gridEl = document.getElementById('githubGrid');
+            const badgeCount = document.getElementById('githubUnclonedCount');
+
+            if (force || !githubLoaded) {
+                loadingEl.classList.remove('d-none');
+                emptyEl.classList.add('d-none');
+                errorEl.classList.add('d-none');
+                gridEl.innerHTML = '';
+            }
+
+            fetch(`?action=get_github_repos${force ? '&force=1' : ''}`)
+                .then(res => res.json())
+                .then(data => {
+                    loadingEl.classList.add('d-none');
+                    githubLoaded = true;
+
+                    if (!data.success) {
+                        badgeCount.textContent = '!';
+                        errorEl.classList.remove('d-none');
+                        document.getElementById('githubErrorMsg').innerHTML = data.message || 'Gagal memuat repository GitHub.';
+                        return;
+                    }
+
+                    badgeCount.textContent = data.total_uncloned;
+
+                    const noticeEl = document.getElementById('githubTokenNotice');
+                    if (noticeEl) {
+                        if (!data.has_token) {
+                            noticeEl.classList.remove('d-none');
+                        } else {
+                            noticeEl.classList.add('d-none');
+                        }
+                    }
+
+                    if (data.total_uncloned === 0) {
+                        emptyEl.classList.remove('d-none');
+                        gridEl.innerHTML = '';
+                        const emptyIcon = document.getElementById('githubEmptyIcon');
+                        const emptyTitle = document.getElementById('githubEmptyTitle');
+                        const emptyDesc = document.getElementById('githubEmptyDesc');
+                        const emptyBtn = document.getElementById('githubEmptyBtn');
+                        
+                        if (!data.has_token) {
+                            if (emptyIcon) emptyIcon.className = 'bi bi-shield-lock-fill text-warning fs-1';
+                            if (emptyTitle) emptyTitle.textContent = 'Tidak Ada Repositori Publik Baru';
+                            if (emptyDesc) emptyDesc.innerHTML = 'Jika project organisasi Anda bersifat <strong>Private</strong> di GitHub, silakan masukkan GitHub Personal Access Token (PAT) agar dapat ditampilkan.';
+                            if (emptyBtn) emptyBtn.classList.remove('d-none');
+                        } else {
+                            if (emptyIcon) emptyIcon.className = 'bi bi-check-circle-fill text-success fs-1';
+                            if (emptyTitle) emptyTitle.textContent = 'Semua Repository Sudah Di-clone!';
+                            if (emptyDesc) emptyDesc.innerHTML = 'Semua project dari organisasi GitHub sudah ada di folder <code>www/</code> lokal Anda.';
+                            if (emptyBtn) emptyBtn.classList.add('d-none');
+                        }
+                        return;
+                    }
+
+                    emptyEl.classList.add('d-none');
+                    renderGitHubRepos(data.repos);
+                })
+                .catch(err => {
+                    loadingEl.classList.add('d-none');
+                    badgeCount.textContent = '!';
+                    errorEl.classList.remove('d-none');
+                    document.getElementById('githubErrorMsg').textContent = 'Koneksi ke server terputus saat mengambil data GitHub.';
+                });
+        }
+
+        function renderGitHubRepos(repos) {
+            const gridEl = document.getElementById('githubGrid');
+            const query = (document.getElementById('projectSearch').value || '').toLowerCase().trim();
+
+            gridEl.innerHTML = repos.map(repo => {
+                const isHidden = query && !repo.name.toLowerCase().includes(query) ? 'style="display:none;"' : '';
+                return `
+                    <div class="col-md-6 github-repo-item" data-name="${escapeHtml(repo.name.toLowerCase())}" ${isHidden}>
+                        <div class="card repo-card h-100 p-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="card-title fw-bold mb-0 text-truncate font-monospace" style="max-width: 60%;" title="${escapeHtml(repo.name)}">
+                                    <i class="bi bi-github me-1 text-secondary"></i>${escapeHtml(repo.name)}
+                                </h6>
+                                <div class="d-flex gap-1 align-items-center flex-wrap justify-content-end">
+                                    <span class="badge ${repo.is_private ? 'badge-private' : 'badge-public'}" style="font-size: 0.68rem;">
+                                        ${repo.is_private ? '<i class="bi bi-lock-fill me-1"></i>Private' : '<i class="bi bi-globe me-1"></i>Public'}
+                                    </span>
+                                    ${repo.language ? `<span class="badge bg-secondary text-light font-monospace" style="font-size: 0.68rem;">${escapeHtml(repo.language)}</span>` : ''}
+                                </div>
+                            </div>
+                            <p class="text-secondary small mb-3 flex-grow-1" style="font-size: 0.8rem; min-height: 2.4rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;" title="${escapeHtml(repo.description)}">
+                                ${escapeHtml(repo.description)}
+                            </p>
+                            <div class="mt-auto d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
+                                <div class="d-flex gap-1">
+                                    <a href="${escapeHtml(repo.html_url)}" target="_blank" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" title="Lihat di GitHub">
+                                        <i class="bi bi-box-arrow-up-right me-1"></i>GitHub
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" title="Salin Perintah CLI" onclick="copyCliClone('${escapeHtml(repo.name)}')">
+                                        <i class="bi bi-terminal me-1"></i>CLI
+                                    </button>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-success py-1 px-3" onclick="openCloneModal('${escapeHtml(repo.name)}', '${escapeHtml(repo.clone_url)}')">
+                                    <i class="bi bi-cloud-arrow-down-fill me-1"></i>Clone
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Clone Modal & Execution
+        function openCloneModal(repoName, cloneUrl) {
+            document.getElementById('cloneModalRepoName').textContent = repoName;
+            document.getElementById('cloneTargetFolder').textContent = repoName;
+            document.getElementById('cloneRepoName').value = repoName;
+            document.getElementById('cloneRepoUrl').value = cloneUrl;
+            document.getElementById('cloneAlert').classList.add('d-none');
+
+            const btnConfirm = document.getElementById('btnConfirmClone');
+            btnConfirm.disabled = false;
+            btnConfirm.innerHTML = '<i class="bi bi-cloud-download me-1"></i> Mulai Clone';
+
+            if (!cloneModalInstance) {
+                cloneModalInstance = new bootstrap.Modal(document.getElementById('cloneModal'));
+            }
+            cloneModalInstance.show();
+        }
+
+        function executeClone() {
+            const repo = document.getElementById('cloneRepoName').value;
+            const php = document.getElementById('cloneSelectPhp').value;
+            const alertEl = document.getElementById('cloneAlert');
+            const btnConfirm = document.getElementById('btnConfirmClone');
+            const btnCancel = document.getElementById('btnCancelClone');
+
+            btnConfirm.disabled = true;
+            btnCancel.disabled = true;
+            btnConfirm.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Meng-clone...';
+            alertEl.className = 'alert alert-info small py-2 mb-0';
+            alertEl.innerHTML = `<i class="bi bi-hourglass-split me-1"></i> Sedang meng-clone repository <strong>${repo}</strong> dan menyiapkan konfigurasi environment...`;
+            alertEl.classList.remove('d-none');
+
+            const formData = new FormData();
+            formData.append('action', 'clone_repo');
+            formData.append('repo', repo);
+            formData.append('php', php);
+
+            fetch('', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alertEl.className = 'alert alert-success small py-2 mb-0';
+                    alertEl.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> ${data.message}`;
+                    setTimeout(() => {
+                        cloneModalInstance.hide();
+                        location.reload();
+                    }, 1200);
+                } else {
+                    alertEl.className = 'alert alert-danger small py-2 mb-0';
+                    alertEl.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> ${data.message || 'Gagal melakukan clone.'}`;
+                    btnConfirm.disabled = false;
+                    btnCancel.disabled = false;
+                    btnConfirm.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Coba Lagi';
+                }
+            })
+            .catch(err => {
+                alertEl.className = 'alert alert-danger small py-2 mb-0';
+                alertEl.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> Terjadi kesalahan koneksi saat clone.`;
+                btnConfirm.disabled = false;
+                btnCancel.disabled = false;
+                btnConfirm.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Coba Lagi';
+            });
+        }
+
+        function copyCliClone(repoName) {
+            const cmd = `./cli/clone-project.sh ${repoName}`;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(cmd).catch(() => {});
+            }
+            showToast(`<i class="bi bi-terminal text-info me-2"></i>Perintah disalin: <code>${cmd}</code>`);
+        }
+
+        // GitHub Token Modal & Save
+        function openTokenModal() {
+            if (!tokenModalInstance) {
+                tokenModalInstance = new bootstrap.Modal(document.getElementById('githubTokenModal'));
+            }
+            tokenModalInstance.show();
+        }
+
+        function saveGithubToken() {
+            const token = document.getElementById('inputGithubToken').value.trim();
+            const btn = document.getElementById('btnSaveGithubToken');
+            btn.disabled = true;
+            btn.textContent = 'Menyimpan...';
+
+            const formData = new FormData();
+            formData.append('action', 'save_token');
+            formData.append('token', token);
+
+            fetch('', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.textContent = 'Simpan Token';
+                if (data.success) {
+                    tokenModalInstance.hide();
+                    showToast('<i class="bi bi-check-circle-fill text-success me-2"></i>Token GitHub berhasil diperbarui!');
+                    loadGitHubRepos(true);
+                } else {
+                    alert('Gagal menyimpan token.');
+                }
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.textContent = 'Simpan Token';
+                alert('Terjadi kesalahan koneksi.');
+            });
+        }
+
+        // Auto-fetch GitHub count on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadGitHubRepos(false);
+        });
     </script>
 </body>
 </html>
