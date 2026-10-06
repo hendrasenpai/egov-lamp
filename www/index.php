@@ -65,17 +65,14 @@ foreach ($all_items as $item) {
             $type_names = [
                 'laravel' => 'Laravel',
                 'ci3' => 'CodeIgniter 3',
-                'ci4' => 'CodeIgniter 4',
                 'native' => 'PHP Native'
             ];
             $type = $type_names[$custom_type] ?? 'PHP Native';
         } else {
             $is_laravel = file_exists("$item/artisan") && file_exists("$item/public/index.php");
-            $is_ci4 = file_exists("$item/spark") && file_exists("$item/public/index.php");
             $is_ci3 = file_exists("$item/application/config/config.php") || file_exists("$item/system/core/CodeIgniter.php");
 
             if ($is_laravel) $type = 'Laravel';
-            elseif ($is_ci4) $type = 'CodeIgniter 4';
             elseif ($is_ci3) $type = 'CodeIgniter 3';
             else $type = 'PHP Native';
         }
@@ -86,8 +83,8 @@ foreach ($all_items as $item) {
         } elseif ($custom_entry === 'root') {
             $subpath = $item;
         } else {
-            // Auto detection
-            $subpath = (in_array($type, ['Laravel', 'CodeIgniter 4'])) ? "$item/public" : $item;
+            // Auto detection (hanya Laravel yang menggunakan /public)
+            $subpath = ($type === 'Laravel') ? "$item/public" : $item;
         }
 
         // Tentukan Port Target
@@ -100,6 +97,7 @@ foreach ($all_items as $item) {
             'subpath' => $subpath,
             'type' => $type,
             'php_version' => $custom_php,
+            'port' => $target_port,
             'has_custom' => $has_custom_ws,
             'raw_type' => $custom_type,
             'raw_entry' => $custom_entry
@@ -205,15 +203,15 @@ foreach ($all_items as $item) {
 
                 <div class="row g-3" id="projectGrid">
                     <?php foreach ($projects as $p): ?>
-                        <div class="col-md-6 project-item" data-name="<?= strtolower($p['name']) ?>">
+                        <div class="col-md-6 project-item" data-name="<?= strtolower($p['name']) ?>" data-php-port="<?= $p['port'] ?>" data-php-ver="<?= $p['php_version'] ?>">
                             <div class="card project-card h-100 p-3">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <h6 class="card-title fw-bold mb-0 text-truncate font-monospace" style="max-width: 60%;">
+                                    <h6 class="card-title fw-bold mb-0 text-truncate font-monospace" style="max-width: 55%;">
                                         <?= htmlspecialchars($p['name']) ?>
                                     </h6>
-                                    <div class="d-flex gap-1 align-items-center">
-                                        <span class="badge bg-dark border border-secondary text-info font-monospace" style="font-size: 0.68rem;">
-                                            PHP <?= $p['php_version'] ?>
+                                    <div class="d-flex gap-1 align-items-center flex-wrap justify-content-end">
+                                        <span class="badge bg-dark border border-secondary text-info font-monospace" style="font-size: 0.68rem;" id="port-status-<?= $p['name'] ?>" title="Port PHP <?= $p['port'] ?>">
+                                            <span class="status-dot status-offline" id="card-dot-<?= $p['name'] ?>"></span>PHP <?= $p['php_version'] ?>
                                         </span>
                                         <?php
                                             $badge_class = 'bg-secondary';
@@ -236,7 +234,8 @@ foreach ($all_items as $item) {
                                             <i class="bi bi-code-slash me-1"></i>VS Code
                                         </button>
                                     </div>
-                                    <a href="<?= htmlspecialchars($p['link']) ?>" target="_blank" class="btn btn-sm btn-outline-primary py-1 px-3">
+                                    <a href="<?= htmlspecialchars($p['link']) ?>" target="_blank" class="btn btn-sm btn-outline-primary py-1 px-3"
+                                       onclick="return checkContainerBeforeOpen(event, '<?= $p['port'] ?>', '<?= $p['php_version'] ?>')">
                                         Buka <i class="bi bi-box-arrow-up-right ms-1"></i>
                                     </a>
                                 </div>
@@ -320,7 +319,6 @@ foreach ($all_items as $item) {
                                 <option value="auto">Auto Detect (Otomatis)</option>
                                 <option value="laravel">Laravel</option>
                                 <option value="ci3">CodeIgniter 3</option>
-                                <option value="ci4">CodeIgniter 4</option>
                                 <option value="native">PHP Native / Web</option>
                             </select>
                         </div>
@@ -328,7 +326,7 @@ foreach ($all_items as $item) {
                         <div class="mb-3">
                             <label class="form-label text-secondary small fw-bold">ENTRY URL</label>
                             <select class="form-select bg-dark text-light border-secondary" name="entry" id="selectEntry">
-                                <option value="auto">Auto Detect (Laravel/CI4 pakai /public)</option>
+                                <option value="auto">Auto Detect (Laravel pakai /public)</option>
                                 <option value="public">Paksa Pakai /public</option>
                                 <option value="root">Langsung Root (Tanpa /public)</option>
                             </select>
@@ -363,27 +361,66 @@ foreach ($all_items as $item) {
             }
         });
 
+        const activePorts = {};
+
         phpContainers.forEach(item => {
             const dot = document.getElementById(`dot-${item.id}`);
             const btn = document.getElementById(`btn-${item.id}`);
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 800);
+            const timeoutId = setTimeout(() => controller.abort(), 900);
 
             fetch(`http://localhost:${item.port}/favicon.ico?ping=${Date.now()}`, {
                 mode: 'no-cors',
                 signal: controller.signal
             }).then(() => {
                 clearTimeout(timeoutId);
+                activePorts[item.port] = true;
                 dot.classList.remove('status-offline');
                 dot.classList.add('status-online');
                 btn.classList.remove('btn-outline-secondary');
                 btn.classList.add('btn-outline-light');
+                updateProjectCardsPortStatus(item.port, true);
             }).catch(() => {
+                activePorts[item.port] = false;
                 dot.classList.remove('status-online');
                 dot.classList.add('status-offline');
+                updateProjectCardsPortStatus(item.port, false);
             });
         });
+
+        function updateProjectCardsPortStatus(port, isOnline) {
+            document.querySelectorAll(`.project-item[data-php-port="${port}"]`).forEach(item => {
+                const name = item.getAttribute('data-name');
+                const cardDot = document.getElementById(`card-dot-${name}`);
+                const cardBadge = document.getElementById(`port-status-${name}`);
+                if (cardDot && cardBadge) {
+                    if (isOnline) {
+                        cardDot.classList.remove('status-offline');
+                        cardDot.classList.add('status-online');
+                        cardBadge.classList.remove('border-danger', 'text-danger');
+                        cardBadge.classList.add('text-info');
+                        cardBadge.title = `Container PHP aktif di port ${port}`;
+                    } else {
+                        cardDot.classList.remove('status-online');
+                        cardDot.classList.add('status-offline');
+                        cardBadge.classList.remove('text-info');
+                        cardBadge.classList.add('border-danger', 'text-danger');
+                        cardBadge.title = `PERINGATAN: Container PHP di port ${port} sedang offline!`;
+                    }
+                }
+            });
+        }
+
+        function checkContainerBeforeOpen(e, port, phpVer) {
+            if (activePorts[port] === false) {
+                if (!confirm(`⚠️ PERHATIAN:\nContainer PHP ${phpVer} (Port ${port}) sedang TIDAK AKTIF (Offline)!\n\nUntuk menyalakannya, jalankan perintah 'egov' di terminal lalu pilih nomor versi PHP ${phpVer}.\n\nTetap buka halaman sekarang?`)) {
+                    e.preventDefault();
+                    return false;
+                }
+            }
+            return true;
+        }
         
         // Search filter
         document.getElementById('projectSearch').addEventListener('input', function(e) {
