@@ -1441,6 +1441,8 @@ foreach ($projects as $p) {
                             <div id="settingGitDetails" class="p-2 rounded bg-black bg-opacity-40 border border-secondary border-opacity-50 small">
                                 <!-- Dinamis diisi oleh JS -->
                             </div>
+                        </div>
+
                         <div class="mt-4 pt-3 border-top border-danger border-opacity-30">
                             <label class="form-label text-danger small fw-bold d-flex justify-content-between align-items-center mb-2">
                                 <span><i class="bi bi-exclamation-triangle-fill me-1"></i>ZONA BAHAYA</span>
@@ -1777,6 +1779,8 @@ foreach ($projects as $p) {
                 </div>
             </div>
         </div>
+    </div>
+
     <!-- Modal Hapus Project Lokal -->
     <div class="modal fade" id="deleteProjectModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -2786,6 +2790,8 @@ foreach ($projects as $p) {
                 btn.textContent = 'Simpan Token';
                 alert('Terjadi kesalahan koneksi.');
             });
+        }
+
         // Project Deletion Modal & Execution
         let deleteModalInstance = null;
         function openDeleteProjectModal(projectName) {
