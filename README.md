@@ -100,9 +100,9 @@ sudo usermod -aG docker $USER
 
 #### 2. Clone Repository
 ```bash
-git clone git@github.com:hendrasenpai/gov-lamp.git ~/workspace/egov
+git clone git@github.com:hendrasenpai/egov-lamp.git ~/workspace/egov
 # Atau via HTTPS jika belum memasang SSH Key:
-# git clone https://github.com/hendrasenpai/gov-lamp.git ~/workspace/egov
+# git clone https://github.com/hendrasenpai/egov-lamp.git ~/workspace/egov
 
 cd ~/workspace/egov
 cp .env.example .env
@@ -135,9 +135,9 @@ Unduh dan install [Docker Desktop for Mac](https://www.docker.com/products/docke
 #### 2. Clone Repository
 Buka Terminal macOS:
 ```zsh
-git clone git@github.com:hendrasenpai/gov-lamp.git ~/egov-lamp
+git clone git@github.com:hendrasenpai/egov-lamp.git ~/egov-lamp
 # Atau via HTTPS:
-# git clone https://github.com/hendrasenpai/gov-lamp.git ~/egov-lamp
+# git clone https://github.com/hendrasenpai/egov-lamp.git ~/egov-lamp
 
 cd ~/egov-lamp
 cp .env.example .env
@@ -172,7 +172,7 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 #### 3. Clone Repository
 ```powershell
-git clone https://github.com/hendrasenpai/gov-lamp.git C:\egov-lamp
+git clone https://github.com/hendrasenpai/egov-lamp.git C:\egov-lamp
 cd C:\egov-lamp
 Copy-Item .env.example .env
 ```
