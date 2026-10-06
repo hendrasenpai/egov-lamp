@@ -24,9 +24,9 @@ Stack ini memungkinkan Anda menjalankan berbagai aplikasi web pemerintah daerah 
 5. [🎮 Menggunakan Interactive Launcher (egov)](#-menggunakan-interactive-launcher-egov)
 6. [⚡ Smart CLI & Perintah Terminal (Auto-Routing)](#-smart-cli--perintah-terminal-auto-routing)
 7. [💡 Contoh Praktis Penggunaan (Real-World Examples)](#-contoh-praktis-penggunaan-real-world-examples)
-   - [Contoh 1: Menjalankan Laravel Modern (PHP 8.2 — b-smart)](#contoh-1-menjalankan-laravel-modern-php-82--b-smart)
-   - [Contoh 2: Menjalankan Laravel Legacy (PHP 7.4)](#contoh-2-menjalankan-laravel-legacy-php-74)
-   - [Contoh 3: Menjalankan CodeIgniter 3 (PHP 7.4 — sidak_bintan)](#contoh-3-menjalankan-codeigniter-3-php-74--sidak_bintan)
+   - [Contoh 1: Menjalankan Laravel PHP 8.3 — web_bintan](#contoh-1-menjalankan-laravel-php-83--web_bintan)
+   - [Contoh 2: Menjalankan Laravel PHP 8.2 — b-smart](#contoh-2-menjalankan-laravel-php-82--b-smart)
+   - [Contoh 3: Menjalankan CodeIgniter 3 PHP 7.4 — ak1_disnaker](#contoh-3-menjalankan-codeigniter-3-php-74--ak1_disnaker)
    - [Contoh 4: Menjalankan Script PHP Native Sederhana](#contoh-4-menjalankan-script-php-native-sederhana)
    - [Contoh 5: Menghubungkan GUI Database (DBeaver / Navicat / VS Code)](#contoh-5-menghubungkan-gui-database-dbeaver--navicat--vs-code)
 8. [🎛️ Konfigurasi Project (.ws) & Dashboard Web](#️-konfigurasi-project-ws--dashboard-web)
@@ -280,26 +280,71 @@ Jika Anda ingin memaksa menjalankan perintah dengan versi PHP tertentu:
 
 Berikut adalah panduan langkah demi langkah untuk berbagai skenario project di lingkungan Diskominfo:
 
-### Contoh 1: Menjalankan Laravel Modern (PHP 8.2 — b-smart)
-Aplikasi modern seperti **b-smart** membutuhkan PHP 8.2 dan ekstensi database MariaDB/MySQL.
+### Contoh 1: Menjalankan Laravel PHP 8.3 — `web_bintan`
+Portal resmi Pemerintah Kabupaten Bintan berbasis Laravel modern yang berjalan di environment **PHP 8.3**.
+
+1. **Letakkan project**: Pastikan source code berada di:
+   ```text
+   egov-lamp/www/web_bintan/
+   ```
+2. **Kunci versi PHP**: File `.ws` di dalam `www/web_bintan/.ws`:
+   ```ini
+   php=8.3
+   type=laravel
+   entry=public
+   ```
+   *(Atau buka dashboard web `http://localhost:8083` lalu klik tombol `⚙️ Setting` pada kartu web_bintan)*.
+3. **Konfigurasi file `.env` Laravel**:
+   Buka file `www/web_bintan/.env` dan sesuaikan koneksi database & URL:
+   ```env
+   APP_NAME="Web Bintan"
+   APP_ENV=local
+   APP_DEBUG=true
+   APP_URL=http://localhost:8083/web_bintan/public
+
+   DB_CONNECTION=mysql
+   DB_HOST=database
+   DB_PORT=3306
+   DB_DATABASE=db_web_bintan
+   DB_USERNAME=root
+   DB_PASSWORD=tiger
+
+   REDIS_HOST=redis
+   REDIS_PORT=6379
+   ```
+4. **Jalankan dependensi & migrasi di Terminal Host**:
+   ```bash
+   cd www/web_bintan
+   composer install
+   artisan key:generate
+   artisan migrate
+   fix-perms
+   ```
+   *(Sistem otomatis mendeteksi `.ws` dan mengeksekusi composer/artisan di dalam container **PHP 8.3**!)*
+5. **Buka di Browser**:
+   Akses: 👉 **`http://localhost:8083/web_bintan/public/`**
+
+---
+
+### Contoh 2: Menjalankan Laravel PHP 8.2 — `b-smart`
+Aplikasi layanan kepegawaian dan administrasi internal Pemerintah Kabupaten Bintan berbasis Laravel 12 yang berjalan di **PHP 8.2**.
 
 1. **Letakkan project**: Pastikan source code berada di:
    ```text
    egov-lamp/www/b-smart/
    ```
-2. **Kunci versi PHP**: Buat file `.ws` di dalam `www/b-smart/.ws`:
+2. **Kunci versi PHP**: File `.ws` di dalam `www/b-smart/.ws`:
    ```ini
    php=8.2
    type=laravel
    entry=public
    ```
-   *(Atau buka dashboard web `http://localhost:8082` lalu klik tombol `⚙️ Setting` pada kartu b-smart)*.
+   *(Atau klik `⚙️ Setting` pada kartu b-smart di dashboard `http://localhost:8082`)*.
 3. **Konfigurasi file `.env` Laravel**:
-   Buka file `www/b-smart/.env` dan sesuaikan koneksi database & Redis:
+   Buka file `www/b-smart/.env` dan sesuaikan koneksi database:
    ```env
    APP_NAME="B-Smart Bintan"
    APP_ENV=local
-   APP_KEY=base64:...
    APP_DEBUG=true
    APP_URL=http://localhost:8082/b-smart/public
 
@@ -313,7 +358,7 @@ Aplikasi modern seperti **b-smart** membutuhkan PHP 8.2 dan ekstensi database Ma
    REDIS_HOST=redis
    REDIS_PORT=6379
    ```
-4. **Jalankan dependensi & migrasi di Terminal Host**:
+4. **Jalankan di Terminal Host**:
    ```bash
    cd www/b-smart
    composer install
@@ -321,68 +366,48 @@ Aplikasi modern seperti **b-smart** membutuhkan PHP 8.2 dan ekstensi database Ma
    artisan migrate
    fix-perms
    ```
+   *(Sistem otomatis mengeksekusi di dalam container **PHP 8.2**!)*
 5. **Buka di Browser**:
    Akses: 👉 **`http://localhost:8082/b-smart/public/`**
 
 ---
 
-### Contoh 2: Menjalankan Laravel Legacy (PHP 7.4)
-Untuk aplikasi lama yang belum mendukung PHP 8+:
+### Contoh 3: Menjalankan CodeIgniter 3 PHP 7.4 — `ak1_disnaker`
+Aplikasi pelayanan AK-1 (Kartu Kuning) Dinas Tenaga Kerja Kabupaten Bintan berbasis CodeIgniter 3 yang membutuhkan **PHP 7.4**.
 
-1. Letakkan project di `www/aplikasi-lama`.
-2. Buat file `www/aplikasi-lama/.ws`:
-   ```ini
-   php=7.4
-   type=laravel
-   entry=public
+1. **Letakkan project**: Pastikan source code berada di:
+   ```text
+   egov-lamp/www/ak1_disnaker/
    ```
-3. Di dalam `www/aplikasi-lama/.env`:
-   ```env
-   DB_HOST=database
-   DB_PORT=3306
-   DB_USERNAME=root
-   DB_PASSWORD=tiger
-   ```
-4. Di terminal:
-   ```bash
-   cd www/aplikasi-lama
-   composer install
-   artisan migrate
-   fix-perms
-   ```
-5. Buka di Browser: 👉 **`http://localhost:8074/aplikasi-lama/public/`**
-
----
-
-### Contoh 3: Menjalankan CodeIgniter 3 (PHP 7.4 — sidak_bintan)
-Aplikasi berbasis CodeIgniter 3 membutuhkan PHP 7.4.
-
-1. Letakkan folder project di `www/sidak_bintan`.
-2. Buat file `.ws` di `www/sidak_bintan/.ws`:
+2. **Kunci versi PHP**: File `.ws` di dalam `www/ak1_disnaker/.ws`:
    ```ini
    php=7.4
    type=ci3
    entry=.
    ```
-3. Sesuaikan konfigurasi database di `application/config/database.php`:
+3. **Konfigurasi Database di `application/config/database.php`**:
+   Buka file `application/config/database.php` dan pastikan hostname mengarah ke `database`:
    ```php
    $db['default'] = array(
-       'dsn'   => '',
+       'dsn'      => '',
        'hostname' => 'database',
        'username' => 'root',
        'password' => 'tiger',
-       'database' => 'db_sidak',
+       'database' => 'silancar',
        'dbdriver' => 'mysqli',
        'pconnect' => FALSE,
        'db_debug' => (ENVIRONMENT !== 'production'),
-       'cache_on' => FALSE,
-       'cachedir' => '',
-       'char_set' => 'utf8',
-       'dbcollat' => 'utf8_general_ci',
        ...
    );
    ```
-4. Buka di Browser: 👉 **`http://localhost:8074/sidak_bintan/`**
+4. **Jalankan Dependensi (Jika Menggunakan Composer)**:
+   ```bash
+   cd www/ak1_disnaker
+   composer install
+   ```
+   *(Sistem otomatis mengeksekusi Composer pada **PHP 7.4**!)*
+5. **Buka di Browser**:
+   Akses: 👉 **`http://localhost:8074/ak1_disnaker/`**
 
 ---
 
