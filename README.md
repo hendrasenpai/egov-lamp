@@ -193,6 +193,57 @@ Sekarang perintah `egov`, `artisan`, `composer`, `php74`..`php83`, dan `fix-perm
 
 ---
 
+### 🐧 D. Instalasi di Windows WSL 2 (Ubuntu)
+*(Sangat Direkomendasikan untuk Kecepatan Maksimal di Windows — 10x Lebih Cepat dari NTFS)*
+
+#### 1. Persiapan Docker Desktop & Integrasi WSL 2
+1. Di Windows, buka **Docker Desktop**.
+2. Masuk ke menu **Settings** (ikon gear ⚙️) ➔ **General** ➔ Pastikan centang **"Use the WSL 2 based engine"**.
+3. Masuk ke **Settings** ➔ **Resources** ➔ **WSL Integration**:
+   - Centang **"Enable integration with my default WSL distro"**.
+   - Di daftar distro di bawahnya, aktifkan toggle pada **Ubuntu** (atau distro yang Anda gunakan).
+4. Klik **Apply & restart**.
+
+#### 2. Clone Repository di dalam Linux Filesystem WSL
+> [!IMPORTANT]
+> Selalu simpan file project di dalam home Linux (`~/egov-lamp` atau `~/workspace/`), **JANGAN** menyimpannya di direktori mount Windows (`/mnt/c/...`). Menyimpan file di filesystem Linux asli membuat eksekusi PHP, Composer, dan I/O Docker hingga **10x lebih cepat**!
+
+Buka terminal **Ubuntu (WSL 2)**:
+```bash
+# Clone via HTTPS (disarankan jika belum setup SSH Key):
+git clone https://github.com/hendrasenpai/egov-lamp.git ~/egov-lamp
+
+# Atau via SSH (jika sudah ada SSH Key GitHub):
+# git clone git@github.com:hendrasenpai/egov-lamp.git ~/egov-lamp
+
+cd ~/egov-lamp
+cp .env.example .env
+chmod +x cli/egov
+```
+
+#### 3. Pasang CLI Helper ke Bash Terminal WSL
+```bash
+echo "source $(pwd)/cli/docker-php-helpers.sh" >> ~/.bashrc
+source ~/.bashrc
+```
+
+#### 4. Membuka Folder Project dari Windows Explorer
+Jika Anda ingin menyalin file project dari Windows ke folder `www/` di WSL:
+- Di terminal WSL, ketik:
+  ```bash
+  explorer.exe www
+  ```
+- Windows Explorer akan otomatis terbuka di path jaringan WSL:
+  `\\wsl.localhost\Ubuntu\home\<user>\egov-lamp\www`
+- Anda dapat melakukan copy-paste file kodingan Anda ke folder tersebut seperti biasa!
+
+#### 5. Selesai!
+Ketik `egov` di terminal WSL untuk menyalakan stack, atau langsung buka project ke editor favorit Anda:
+- Ke VS Code: `code .`
+- Ke Antigravity IDE: `antigravity .` atau `ide .`
+
+---
+
 ## 🎮 Menggunakan Interactive Launcher (egov)
 
 Untuk mengelola seluruh stack tanpa perlu mengingat perintah Docker yang panjang, jalankan:
@@ -592,33 +643,73 @@ chmod -R 777 ~/egov-lamp/www
 
 ---
 
-### Q7: Bagaimana cara membuka folder project via terminal ke Editor (VS Code & Google Antigravity)?
+### Q7: Bagaimana cara membuka folder project via terminal WSL ke Editor Windows (VS Code & Google Antigravity)?
+Dari dalam terminal WSL 2 di folder project (misalnya `~/egov-lamp/www/web_bintan`), Anda dapat langsung meluncurkan editor koding yang terinstall di Windows host:
 - **Visual Studio Code**:
-  Masuk ke folder project di terminal lalu ketik:
   ```bash
   code .
   ```
 - **Google Antigravity IDE (Code Editor)**:
-  Sama persis seperti `code .`, Anda dapat membuka folder project langsung ke Antigravity IDE (Code Editor berbasis VS Code) dengan perintah:
+  Sama persis seperti `code .`, Anda dapat membuka folder project langsung ke Antigravity IDE di Windows dengan perintah:
   ```bash
   antigravity .
-  # atau shortcut alias
+  # atau shortcut ringkas:
   ide .
   ```
-  > *💡 **Penting — Perbedaan Antigravity IDE vs Antigravity 2.0 (Bawaan)**:*
-  > Google memiliki 2 aplikasi desktop:
-  > 1. **Antigravity IDE**: Editor koding lengkap (file explorer, tab editor, terminal).
-  > 2. **Antigravity 2.0 (Desktop App)**: Manager agent AI / chat canvas.
-  >
-  > Jika yang terbuka adalah Antigravity bawaan (Desktop Agent Canvas) dan bukan editor koding, pastikan:
-  > 1. Aplikasi **Antigravity IDE** sudah diinstall di Windows (bisa dicek lewat Start Menu Windows cari `Antigravity IDE`).
-  > 2. Buka Antigravity IDE di Windows ➔ Tekan `Ctrl+Shift+P` ➔ Ketik:  
-  >    `Shell Command: Install 'antigravity-ide' command in PATH`  
-  >    (atau `Install 'agy' command in PATH`) ➔ Tekan Enter.
+  > *💡 **Catatan Teknis & Troubleshooting Antigravity IDE**:*
+  > - **Nama Perintah di Windows**: Di sistem operasi Windows, perintah CLI Antigravity IDE terdaftar pada Environment Variables (PATH) dengan nama **`antigravity-ide`**.
+  > - **Alur Kerja Bridge**: Script helper `egov-lamp` secara otomatis mengonversi path Linux ke UNC path Windows (`\\wsl.localhost\Ubuntu\...`) lalu mengeksekusi `antigravity-ide` ke Windows CMD di latar belakang.
+  > - **Perbedaan Aplikasi**: Pastikan yang terpasang di Windows adalah **Antigravity IDE** (editor koding berbasis VS Code dengan tab editor dan file tree), bukan sekadar **Antigravity 2.0 Desktop** (aplikasi chat manager agent bawaan).
+  > - **Tes Manual dari WSL**: Jika ingin menguji secara manual dari terminal WSL:
+  >   ```bash
+  >   cmd.exe /c antigravity-ide "$(wslpath -w .)"
+  >   ```
 - **Google Antigravity CLI (Agent Interaktif di Terminal)**:
   ```bash
   agy .
   ```
+
+---
+
+### Q8: Muncul error `permission denied while trying to connect to the Docker daemon socket` saat menjalankan `docker` di WSL 2?
+**Penyebab**: User akun Linux Anda di WSL 2 belum dimasukkan ke dalam group sistem `docker`, atau integrasi WSL 2 di Docker Desktop Windows belum diaktifkan.  
+**Solusi**:
+1. Masukkan user Anda ke grup `docker` di WSL 2:
+   ```bash
+   sudo usermod -aG docker $USER
+   newgrp docker
+   ```
+2. Pastikan aplikasi **Docker Desktop** di Windows sedang berjalan (ikon paus hijau di taskbar).
+3. Pastikan integrasi WSL sudah aktif di Docker Desktop:
+   - Buka Docker Desktop di Windows ➔ Klik **Settings** (⚙️) ➔ **Resources** ➔ **WSL Integration**.
+   - Pastikan toggle distro **Ubuntu** dalam posisi **ON / Aktif**.
+   - Klik **Apply & restart**.
+4. Jika koneksi socket masih belum tersambung, restart instance WSL dari PowerShell Windows:
+   ```powershell
+   wsl --shutdown
+   ```
+   Lalu buka kembali terminal Ubuntu WSL Anda.
+
+---
+
+### Q9: Muncul error `Permission denied (publickey)` saat clone repository di WSL 2?
+**Penyebab**: Anda menggunakan URL SSH (`git@github.com:...`) namun terminal WSL 2 belum memiliki SSH Key yang didaftarkan ke akun GitHub Anda.  
+**Solusi**:
+- **Solusi Termudah**: Clone menggunakan protokol **HTTPS**:
+  ```bash
+  git clone https://github.com/hendrasenpai/egov-lamp.git ~/egov-lamp
+  ```
+- **Solusi Menggunakan SSH Key**: Jika ingin tetap menggunakan SSH:
+  1. Generate SSH Key baru di terminal WSL:
+     ```bash
+     ssh-keygen -t ed25519 -C "email_anda@domain.com"
+     ```
+     *(Tekan Enter terus sampai selesai).*
+  2. Tampilkan isi public key yang baru dibuat:
+     ```bash
+     cat ~/.ssh/id_ed25519.pub
+     ```
+  3. Buka GitHub di browser ➔ **Settings** ➔ **SSH and GPG keys** ➔ Klik **New SSH Key** ➔ Paste key tersebut lalu simpan.
 
 ---
 
