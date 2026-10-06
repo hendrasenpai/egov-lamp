@@ -157,7 +157,7 @@ if [ -f "$TARGET_DIR/.env.example" ] && [ ! -f "$TARGET_DIR/.env" ]; then
 fi
 
 # 5. Perbaiki File Permissions (storage, cache, .ws)
-chmod 777 "$TARGET_DIR" 2>/dev/null
+chmod -R 777 "$TARGET_DIR" 2>/dev/null
 [ -d "$TARGET_DIR/storage" ] && chmod -R 777 "$TARGET_DIR/storage" 2>/dev/null
 [ -d "$TARGET_DIR/bootstrap/cache" ] && chmod -R 777 "$TARGET_DIR/bootstrap/cache" 2>/dev/null
 chmod 666 "$TARGET_DIR/.ws" 2>/dev/null

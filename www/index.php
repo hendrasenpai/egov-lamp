@@ -290,7 +290,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-// 4. Handle API Get GitHub Repositories
+// 4. Handle API Hapus Project Lokal
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_project') {
+    if (ob_get_level()) ob_clean();
+    header('Content-Type: application/json');
+
+    $project = preg_replace('/[^a-zA-Z0-9_\-]/', '', $_POST['project'] ?? '');
+    $drop_db = !empty($_POST['drop_db']) && ($_POST['drop_db'] === '1' || $_POST['drop_db'] === 'true');
+
+    // Security check: cannot delete empty, root, or reserved dirs
+    $reserved = ['.', '..', 'cli', 'config', 'data', 'logs', 'docker-compose.yml', 'README.md', 'test_db.php', 'test_db_pdo.php', 'phpinfo.php', 'index.php'];
+    if (!$project || in_array($project, $reserved, true) || !is_dir("./$project")) {
+        echo json_encode(['success' => false, 'message' => 'Project tidak valid atau tidak ditemukan di folder www/.']);
+        exit;
+    }
+
+    // 1. Drop database jika diminta
+    $db_dropped = false;
+    $db_err = null;
+    $safe_db = preg_replace('/[^a-zA-Z0-9_]/', '_', $project);
+    if ($drop_db) {
+        try {
+            $pdo = new PDO('mysql:host=database;port=3306', 'root', 'tiger', [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_TIMEOUT => 3
+            ]);
+            $pdo->exec("DROP DATABASE IF EXISTS `{$safe_db}`");
+            $db_dropped = true;
+        } catch (\Exception $e) {
+            $db_err = $e->getMessage();
+        }
+    }
+
+    // 2. Hapus direktori folder secara rekursif
+    @exec("chmod -R 777 " . escapeshellarg("./$project") . " 2>&1");
+    $output = [];
+    $ret = 0;
+    exec("rm -rf " . escapeshellarg("./$project") . " 2>&1", $output, $ret);
+
+    if ($ret !== 0 || is_dir("./$project")) {
+        echo json_encode([
+            'success' => false, 
+            'message' => 'Gagal menghapus folder project: ' . (implode("\n", $output) ?: 'Permission denied')
+        ]);
+        exit;
+    }
+
+    // Hapus cache github agar repository ini muncul kembali di tab GitHub Repo jika berasal dari organisasi
+    @unlink('./.github_cache.json');
+
+    $msg = "Project '{$project}' berhasil dihapus.";
+    if ($drop_db) {
+        $msg .= $db_dropped ? " Database lokal '{$safe_db}' juga telah dihapus." : " (Catatan DB: " . ($db_err ?: 'tidak dapat dihapus') . ")";
+    }
+
+    echo json_encode([
+        'success' => true,
+        'project' => $project,
+        'message' => $msg
+    ]);
+    exit;
+}
+
+// 5. Handle API Get GitHub Repositories
 if (isset($_GET['action']) && $_GET['action'] === 'get_github_repos') {
     if (ob_get_level()) ob_clean();
     header('Content-Type: application/json');
@@ -1185,6 +1247,10 @@ foreach ($projects as $p) {
                                                         onclick="openInAntigravity('<?= htmlspecialchars($p['name']) ?>')">
                                                     <i class="bi bi-rocket-takeoff me-1 text-purple"></i>Antigravity
                                                 </button>
+                                                <button type="button" class="btn btn-sm btn-card-action text-danger" title="Hapus Project Lokal" 
+                                                        onclick="openDeleteProjectModal('<?= htmlspecialchars($p['name']) ?>')">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
                                             </div>
                                             <a href="<?= htmlspecialchars($p['link']) ?>" target="_blank" class="btn btn-sm btn-card-open ms-1"
                                                onclick="return checkContainerBeforeOpen(event, '<?= $p['port'] ?>', '<?= $p['php_version'] ?>')">
@@ -1374,6 +1440,19 @@ foreach ($projects as $p) {
                             </label>
                             <div id="settingGitDetails" class="p-2 rounded bg-black bg-opacity-40 border border-secondary border-opacity-50 small">
                                 <!-- Dinamis diisi oleh JS -->
+                            </div>
+                        <div class="mt-4 pt-3 border-top border-danger border-opacity-30">
+                            <label class="form-label text-danger small fw-bold d-flex justify-content-between align-items-center mb-2">
+                                <span><i class="bi bi-exclamation-triangle-fill me-1"></i>ZONA BAHAYA</span>
+                            </label>
+                            <div class="d-flex justify-content-between align-items-center p-2 rounded bg-danger bg-opacity-10 border border-danger border-opacity-25">
+                                <div>
+                                    <div class="fw-semibold text-danger small">Hapus Project Lokal</div>
+                                    <div class="text-secondary small" style="font-size: 0.75rem;">Hapus folder project dan opsional database lokal secara permanen.</div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger ms-2 text-nowrap" onclick="openDeleteModalFromSetting()">
+                                    <i class="bi bi-trash me-1"></i>Hapus
+                                </button>
                             </div>
                         </div>
                     </form>
@@ -1695,6 +1774,57 @@ foreach ($projects as $p) {
                 <div class="modal-footer border-secondary">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
                     <button type="button" class="btn btn-primary" id="btnSaveGithubToken" onclick="saveGithubToken()">Simpan Token</button>
+                </div>
+            </div>
+        </div>
+    <!-- Modal Hapus Project Lokal -->
+    <div class="modal fade" id="deleteProjectModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark border-danger border-opacity-50 text-light shadow-lg">
+                <div class="modal-header border-danger border-opacity-30 bg-danger bg-opacity-10">
+                    <h5 class="modal-title text-danger">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Hapus Project Lokal
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="deleteTargetProject">
+                    <p class="mb-3 text-secondary small">
+                        Tindakan ini akan menghapus folder project <strong class="text-white font-monospace" id="deleteProjectDisplay"></strong> secara permanen dari server lokal Anda.
+                    </p>
+
+                    <div class="p-3 mb-3 rounded bg-black bg-opacity-40 border border-secondary border-opacity-40">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="bi bi-folder-x text-warning me-2 fs-5"></i>
+                            <div>
+                                <div class="small text-secondary fw-semibold">LOKASI FOLDER</div>
+                                <div class="font-monospace small text-light" id="deleteFolderDisplay">www/...</div>
+                            </div>
+                        </div>
+
+                        <div class="form-check form-switch pt-2 mt-2 border-top border-secondary border-opacity-30">
+                            <input class="form-check-input" type="checkbox" role="switch" id="deleteOptDropDb">
+                            <label class="form-check-label small" for="deleteOptDropDb">
+                                Hapus juga database MariaDB lokal (<code id="deleteDbDisplay">...</code>)
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-secondary fw-bold">
+                            Ketik <span class="text-danger font-monospace fw-bold" id="deleteConfirmText"></span> untuk mengonfirmasi:
+                        </label>
+                        <input type="text" class="form-control bg-dark text-light border-secondary font-monospace" 
+                               id="inputDeleteConfirm" placeholder="" autocomplete="off" oninput="checkDeleteConfirmation()">
+                    </div>
+
+                    <div id="deleteAlert" class="alert d-none small mb-0 py-2"></div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btnCancelDelete">Batal</button>
+                    <button type="button" class="btn btn-danger" id="btnConfirmDeleteProject" disabled onclick="executeDeleteProject()">
+                        <i class="bi bi-trash-fill me-1"></i> Hapus Project Permanen
+                    </button>
                 </div>
             </div>
         </div>
@@ -2655,6 +2785,102 @@ foreach ($projects as $p) {
                 btn.disabled = false;
                 btn.textContent = 'Simpan Token';
                 alert('Terjadi kesalahan koneksi.');
+            });
+        // Project Deletion Modal & Execution
+        let deleteModalInstance = null;
+        function openDeleteProjectModal(projectName) {
+            if (!projectName) return;
+            document.getElementById('deleteTargetProject').value = projectName;
+            document.getElementById('deleteProjectDisplay').textContent = projectName;
+            document.getElementById('deleteFolderDisplay').textContent = `www/${projectName}`;
+            document.getElementById('deleteConfirmText').textContent = projectName;
+            const safeDb = projectName.replace(/[^a-zA-Z0-9_]/g, '_');
+            document.getElementById('deleteDbDisplay').textContent = safeDb;
+            document.getElementById('deleteOptDropDb').checked = false;
+            
+            const inputConfirm = document.getElementById('inputDeleteConfirm');
+            inputConfirm.value = '';
+            
+            const alertEl = document.getElementById('deleteAlert');
+            alertEl.className = 'alert d-none small mb-0 py-2';
+            alertEl.innerHTML = '';
+
+            const btnConfirm = document.getElementById('btnConfirmDeleteProject');
+            btnConfirm.disabled = true;
+            btnConfirm.innerHTML = '<i class="bi bi-trash-fill me-1"></i> Hapus Project Permanen';
+
+            if (!deleteModalInstance) {
+                deleteModalInstance = new bootstrap.Modal(document.getElementById('deleteProjectModal'));
+            }
+            deleteModalInstance.show();
+            setTimeout(() => inputConfirm.focus(), 300);
+        }
+
+        function openDeleteModalFromSetting() {
+            const project = document.getElementById('inputProject').value;
+            if (settingModalInstance) {
+                settingModalInstance.hide();
+            }
+            openDeleteProjectModal(project);
+        }
+
+        function checkDeleteConfirmation() {
+            const target = document.getElementById('deleteTargetProject').value.trim();
+            const input = document.getElementById('inputDeleteConfirm').value.trim();
+            const btnConfirm = document.getElementById('btnConfirmDeleteProject');
+            btnConfirm.disabled = (input !== target);
+        }
+
+        function executeDeleteProject() {
+            const project = document.getElementById('deleteTargetProject').value.trim();
+            const dropDb = document.getElementById('deleteOptDropDb').checked;
+            const btnConfirm = document.getElementById('btnConfirmDeleteProject');
+            const btnCancel = document.getElementById('btnCancelDelete');
+            const alertEl = document.getElementById('deleteAlert');
+
+            if (!project) return;
+
+            btnConfirm.disabled = true;
+            btnCancel.disabled = true;
+            btnConfirm.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Menghapus...';
+
+            const formData = new FormData();
+            formData.append('action', 'delete_project');
+            formData.append('project', project);
+            if (dropDb) {
+                formData.append('drop_db', '1');
+            }
+
+            fetch('', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alertEl.className = 'alert alert-success small py-2 mb-0';
+                    alertEl.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> ${escapeHtml(data.message)}`;
+                    alertEl.classList.remove('d-none');
+                    setTimeout(() => {
+                        deleteModalInstance.hide();
+                        location.reload();
+                    }, 1200);
+                } else {
+                    alertEl.className = 'alert alert-danger small py-2 mb-0';
+                    alertEl.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> ${escapeHtml(data.message || 'Gagal menghapus project.')}`;
+                    alertEl.classList.remove('d-none');
+                    btnConfirm.disabled = false;
+                    btnCancel.disabled = false;
+                    btnConfirm.innerHTML = '<i class="bi bi-trash-fill me-1"></i> Hapus Project Permanen';
+                }
+            })
+            .catch(err => {
+                alertEl.className = 'alert alert-danger small py-2 mb-0';
+                alertEl.innerHTML = '<i class="bi bi-x-circle-fill me-1"></i> Terjadi kesalahan koneksi saat menghapus.';
+                alertEl.classList.remove('d-none');
+                btnConfirm.disabled = false;
+                btnCancel.disabled = false;
+                btnConfirm.innerHTML = '<i class="bi bi-trash-fill me-1"></i> Hapus Project Permanen';
             });
         }
 

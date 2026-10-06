@@ -157,7 +157,7 @@ echo -e "${YELLOW}Membuat database MariaDB '$DB_SAFE_NAME'...${NC}"
 (cd "$ROOT_DIR" && docker compose exec -T database mysql -u root -ptiger -e "CREATE DATABASE IF NOT EXISTS \`$DB_SAFE_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || true)
 
 # 9. Permissions
-chmod 777 "$TARGET_DIR" 2>/dev/null
+chmod -R 777 "$TARGET_DIR" 2>/dev/null
 [ -d "$TARGET_DIR/storage" ] && chmod -R 777 "$TARGET_DIR/storage" 2>/dev/null
 [ -d "$TARGET_DIR/bootstrap/cache" ] && chmod -R 777 "$TARGET_DIR/bootstrap/cache" 2>/dev/null
 
