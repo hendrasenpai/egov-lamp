@@ -598,12 +598,23 @@ chmod -R 777 ~/egov-lamp/www
   ```bash
   code .
   ```
-- **Google Antigravity IDE**:
-  Sama persis seperti VS Code, Anda dapat membuka folder project langsung ke Antigravity IDE dengan perintah:
+- **Google Antigravity IDE (Code Editor)**:
+  Sama persis seperti `code .`, Anda dapat membuka folder project langsung ke Antigravity IDE (Code Editor berbasis VS Code) dengan perintah:
   ```bash
   antigravity .
+  # atau shortcut alias
+  ide .
   ```
-  > *Catatan: Jika perintah `antigravity` belum terdaftar di terminal Anda: Buka Antigravity IDE ➔ Tekan `Ctrl+Shift+P` (atau `Cmd+Shift+P` di Mac) ➔ Ketik `Shell Command: Install 'antigravity' command in PATH` ➔ Tekan Enter.*
+  > *💡 **Penting — Perbedaan Antigravity IDE vs Antigravity 2.0 (Bawaan)**:*
+  > Google memiliki 2 aplikasi desktop:
+  > 1. **Antigravity IDE**: Editor koding lengkap (file explorer, tab editor, terminal).
+  > 2. **Antigravity 2.0 (Desktop App)**: Manager agent AI / chat canvas.
+  >
+  > Jika yang terbuka adalah Antigravity bawaan (Desktop Agent Canvas) dan bukan editor koding, pastikan:
+  > 1. Aplikasi **Antigravity IDE** sudah diinstall di Windows (bisa dicek lewat Start Menu Windows cari `Antigravity IDE`).
+  > 2. Buka Antigravity IDE di Windows ➔ Tekan `Ctrl+Shift+P` ➔ Ketik:  
+  >    `Shell Command: Install 'antigravity-ide' command in PATH`  
+  >    (atau `Install 'agy' command in PATH`) ➔ Tekan Enter.
 - **Google Antigravity CLI (Agent Interaktif di Terminal)**:
   ```bash
   agy .

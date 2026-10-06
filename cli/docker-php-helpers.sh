@@ -160,40 +160,74 @@ fix-perms() {
     echo -e "\033[0;32mSelesai! Semua permission sudah aman.\033[0m"
 }
 
-# Integrasi Editor Google Antigravity dari dalam WSL ke Windows
+# Integrasi Editor Google Antigravity IDE dari dalam WSL ke Windows
 if grep -qiE "microsoft|wsl" /proc/version 2>/dev/null; then
     antigravity() {
         local target="${1:-.}"
+        local abs_target
+        abs_target=$(readlink -f "$target" 2>/dev/null || echo "$target")
+
         local win_path
         if command -v wslpath >/dev/null 2>&1; then
-            win_path=$(wslpath -w "$target" 2>/dev/null || echo "$target")
+            win_path=$(wslpath -w "$abs_target" 2>/dev/null || echo "$target")
         else
             win_path="$target"
         fi
 
-        # 1. Cek apakah ada binary antigravity di Windows PATH
-        if command -v antigravity.exe >/dev/null 2>&1; then
-            antigravity.exe "$win_path" 2>/dev/null &
-            return
-        elif command -v antigravity.cmd >/dev/null 2>&1; then
-            antigravity.cmd "$win_path" 2>/dev/null &
-            return
-        fi
+        local distro="${WSL_DISTRO_NAME:-Ubuntu}"
 
-        # 2. Cek lokasi instalasi default Antigravity di Windows
+        # 1. Prioritaskan Antigravity IDE (Code Editor) di Windows PATH
+        for cmd in antigravity-ide.cmd antigravity-ide antigravity-ide.exe agy-ide.cmd; do
+            if command -v "$cmd" >/dev/null 2>&1; then
+                "$cmd" --remote "wsl+$distro" "$abs_target" 2>/dev/null || "$cmd" "$win_path" 2>/dev/null &
+                return
+            fi
+        done
+
+        # 2. Cari instalasi spesifik Antigravity IDE (Editor koding berbasis VS Code) di Windows
+        local ide_candidates=(
+            /mnt/c/Users/*/AppData/Local/Programs/"Antigravity IDE"/bin/antigravity-ide*
+            /mnt/c/Users/*/AppData/Local/Programs/"Antigravity IDE"/"Antigravity IDE.exe"
+            /mnt/c/Users/*/AppData/Local/Programs/"Antigravity"/bin/antigravity*
+            /mnt/c/Users/*/AppData/Local/Programs/Google/"Antigravity IDE"/"Antigravity IDE.exe"
+            "/mnt/c/Program Files/Google/Antigravity IDE/Antigravity IDE.exe"
+            "/mnt/c/Program Files/Antigravity IDE/Antigravity IDE.exe"
+            "/mnt/c/Program Files/Google/Antigravity IDE/bin/antigravity-ide"*
+        )
+
+        for exe in "${ide_candidates[@]}"; do
+            if [ -f "$exe" ]; then
+                if [[ "$exe" == *"bin/antigravity"* ]] || [[ "$exe" == *".cmd" ]]; then
+                    "$exe" --remote "wsl+$distro" "$abs_target" 2>/dev/null || "$exe" "$win_path" 2>/dev/null &
+                else
+                    "$exe" "$win_path" 2>/dev/null &
+                fi
+                return
+            fi
+        done
+
+        # 3. Fallback: jika Antigravity IDE belum ada, cek apakah hanya ada Antigravity 2.0 (Desktop Agent App)
         for u in /mnt/c/Users/*; do
             if [ -f "$u/AppData/Local/Programs/Antigravity/Antigravity.exe" ]; then
+                echo -e "\033[1;33m[Perhatian]\033[0m Antigravity IDE (Editor Kode) tidak ditemukan, membuka Antigravity 2.0 (Desktop App)."
+                echo -e "Untuk membuka editor koding (seperti VS Code), pastikan telah menginstall \033[1;32mAntigravity IDE\033[0m di Windows."
                 "$u/AppData/Local/Programs/Antigravity/Antigravity.exe" "$win_path" 2>/dev/null &
                 return
             fi
         done
 
-        # 3. Fallback lewat cmd.exe Windows
-        cmd.exe /c start "" antigravity "$win_path" 2>/dev/null || {
-            echo -e "\033[0;31mPerintah Antigravity tidak ditemukan di Windows PATH.\033[0m"
-            echo -e "Silakan buka Antigravity di Windows, tekan Ctrl+Shift+P, lalu pilih:"
-            echo -e "\033[1;33mShell Command: Install 'antigravity' command in PATH\033[0m"
+        # 4. Fallback cmd.exe start
+        cmd.exe /c start "" "antigravity-ide" "$win_path" 2>/dev/null || \
+        cmd.exe /c start "" "antigravity" "$win_path" 2>/dev/null || {
+            echo -e "\033[0;31mAntigravity IDE tidak ditemukan di Windows.\033[0m"
+            echo -e "Pastikan Anda telah menginstall \033[1;36mAntigravity IDE\033[0m di Windows."
+            echo -e "Buka Antigravity IDE, tekan \033[1;33mCtrl+Shift+P\033[0m, lalu pilih:"
+            echo -e "\033[1;33mShell Command: Install 'antigravity-ide' command in PATH\033[0m"
         }
     }
+
+    alias antigravity-ide='antigravity'
+    alias agy-ide='antigravity'
+    alias ide='antigravity'
 fi
 
