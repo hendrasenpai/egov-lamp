@@ -123,10 +123,16 @@ function run_laravel_auto_setup($dir, $repo, $options, &$steps = []) {
             }
         }
         $db_ok = create_mariadb_database($repo);
+        $has_env_example = file_exists("$dir/.env.example");
+        if ($has_env_example) {
+            $msg = $db_ok ? "Database '{$clean_db}' dibuat di MariaDB & .env disiapkan." : "File .env disiapkan (koneksi MariaDB timeout).";
+        } else {
+            $msg = $db_ok ? "Database '{$clean_db}' dibuat di MariaDB (dapat dikonfigurasikan di database.php)." : "Koneksi MariaDB timeout.";
+        }
         $steps[] = [
             'step' => 'Environment & Database',
             'status' => $db_ok ? 'ok' : 'warn',
-            'message' => $db_ok ? "Database '{$clean_db}' dibuat di MariaDB & .env disiapkan." : "File .env disiapkan (koneksi MariaDB timeout)."
+            'message' => $msg
         ];
     }
 
@@ -564,8 +570,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         'message' => "Repository {$repo} berhasil di-clone."
     ];
 
+    // Deteksi Framework Pasca-Clone
+    $is_laravel = file_exists("./$repo/artisan") && file_exists("./$repo/public/index.php");
+    $is_ci3 = file_exists("./$repo/application/config/config.php") || file_exists("./$repo/system/core/CodeIgniter.php");
+
+    $target_type = 'native';
+    $target_entry = 'root';
+    $target_php = $php;
+
+    if ($is_laravel) {
+        $target_type = 'laravel';
+        $target_entry = 'public';
+        $steps[] = [
+            'step' => 'Framework Detection',
+            'status' => 'ok',
+            'message' => 'Terdeteksi Laravel Framework. Pipeline otomatis Laravel diaktifkan.'
+        ];
+    } elseif ($is_ci3) {
+        $target_type = 'ci3';
+        $target_entry = 'root';
+        if ($php === '8.3') {
+            $target_php = '7.4';
+            $steps[] = [
+                'step' => 'Framework Detection',
+                'status' => 'ok',
+                'message' => 'Terdeteksi CodeIgniter 3. Runtime disesuaikan otomatis ke PHP 7.4 (Port 8074). Perintah artisan Laravel otomatis dilewati.'
+            ];
+        } else {
+            $steps[] = [
+                'step' => 'Framework Detection',
+                'status' => 'ok',
+                'message' => "Terdeteksi CodeIgniter 3 (PHP {$target_php}). Perintah artisan Laravel otomatis dilewati."
+            ];
+        }
+    } else {
+        $target_type = 'native';
+        $target_entry = 'root';
+        $steps[] = [
+            'step' => 'Framework Detection',
+            'status' => 'ok',
+            'message' => 'Terdeteksi PHP Native / Web. Perintah artisan Laravel dilewati.'
+        ];
+    }
+
     // Set versi PHP di .ws
-    $content = "php={$php}\ntype=auto\nentry=auto\n";
+    $content = "php={$target_php}\ntype={$target_type}\nentry={$target_entry}\nide=auto\nicon=auto\n";
     @file_put_contents("./$repo/.ws", $content);
     @chmod("./$repo/.ws", 0666);
     ensure_code_workspace($repo);
@@ -584,7 +633,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     echo json_encode([
         'success' => true,
         'project' => $repo,
-        'php' => $php,
+        'php' => $target_php,
         'message' => "Project {$repo} berhasil di-clone dan disiapkan!",
         'steps' => $steps
     ]);
@@ -1884,13 +1933,13 @@ foreach ($projects as $p) {
                     <div class="mb-3">
                         <label class="form-label text-secondary small fw-bold">PILIH VERSI PHP AWAL</label>
                         <select class="form-select bg-dark text-light border-secondary" id="cloneSelectPhp">
-                            <option value="7.4">PHP 7.4 (Port 8074) - Rekomendasi Legacy / CI3</option>
+                            <option value="7.4">PHP 7.4 (Port 8074) - Rekomendasi CodeIgniter 3 / Legacy</option>
                             <option value="8.0">PHP 8.0 (Port 8080)</option>
                             <option value="8.1">PHP 8.1 (Port 8081)</option>
                             <option value="8.2">PHP 8.2 (Port 8082)</option>
                             <option value="8.3" selected>PHP 8.3 (Port 8083) - Rekomendasi Laravel Terbaru</option>
                         </select>
-                        <small class="text-muted">Versi PHP bisa diubah kapan saja di tombol 'Setting'.</small>
+                        <small class="text-muted">Untuk CodeIgniter 3, disarankan PHP 7.4 (sistem akan otomatis mendeteksi).</small>
                     </div>
 
                     <div class="card bg-black bg-opacity-40 border-secondary p-3 mb-3">
@@ -1919,6 +1968,11 @@ foreach ($projects as $p) {
                                     <input class="form-check-input" type="checkbox" role="switch" id="cloneOptMigrateSeed" checked>
                                     <label class="form-check-label" for="cloneOptMigrateSeed">Migrasi Database (<code>migrate:fresh --seed</code>)</label>
                                     <div id="cloneMigrateSeedNotice" class="text-warning small d-none mt-1 font-monospace" style="font-size: 0.72rem;"></div>
+                                </div>
+                            </div>
+                            <div class="col-12 mt-2 pt-2 border-top border-secondary border-opacity-30">
+                                <div class="text-secondary small" style="font-size: 0.72rem;">
+                                    <i class="bi bi-info-circle text-info me-1"></i><strong>Proteksi Framework:</strong> Langkah Laravel (<code>key:generate</code>, <code>storage:link</code>, migrasi) otomatis <strong>dilewati</strong> jika repository bukan project Laravel (seperti CodeIgniter 3 / Native).
                                 </div>
                             </div>
                         </div>

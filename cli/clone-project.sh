@@ -97,22 +97,39 @@ else
     echo -e "${GREEN}✔ Berhasil di-clone ke www/$REPO_NAME!${NC}"
 fi
 
+# Deteksi Framework Pasca-Clone
+IS_LARAVEL=false
+IS_CI3=false
+if [ -f "$TARGET_DIR/artisan" ] && [ -f "$TARGET_DIR/public/index.php" ]; then
+    IS_LARAVEL=true
+    echo -e "${GREEN}ℹ Terdeteksi: Laravel Framework${NC}"
+elif [ -f "$TARGET_DIR/application/config/config.php" ] || [ -f "$TARGET_DIR/system/core/CodeIgniter.php" ]; then
+    IS_CI3=true
+    echo -e "${YELLOW}ℹ Terdeteksi: CodeIgniter 3 (Disarankan PHP 7.4)${NC}"
+else
+    echo -e "${BLUE}ℹ Terdeteksi: PHP Native / Web Standar${NC}"
+fi
+
 # 3. Pengaturan Versi PHP (.ws)
 if [ -z "$PHP_INPUT" ]; then
     CURRENT_WS=""
     [ -f "$TARGET_DIR/.ws" ] && CURRENT_WS=$(cat "$TARGET_DIR/.ws" | tr -d '[:space:]')
     
+    DEFAULT_OPT="4"
+    [ "$IS_CI3" = true ] && DEFAULT_OPT="1"
+
     echo ""
     echo -e "${CYAN}Pilih versi PHP untuk project ini:${NC}"
-    echo -e "  ${BOLD}1)${NC} PHP 7.4 (Port :8074)"
+    echo -e "  ${BOLD}1)${NC} PHP 7.4 (Port :8074 - Rekomendasi CI 3 / Legacy)"
     echo -e "  ${BOLD}2)${NC} PHP 8.0 (Port :8080)"
     echo -e "  ${BOLD}3)${NC} PHP 8.1 (Port :8081)"
-    echo -e "  ${BOLD}4)${NC} PHP 8.2 (Port :8082 - Rekomendasi Default)"
-    echo -e "  ${BOLD}5)${NC} PHP 8.3 (Port :8083)"
+    echo -e "  ${BOLD}4)${NC} PHP 8.2 (Port :8082)"
+    echo -e "  ${BOLD}5)${NC} PHP 8.3 (Port :8083 - Rekomendasi Laravel)"
     if [ -n "$CURRENT_WS" ]; then
         echo -e "  *(Saat ini sudah diset ke PHP $CURRENT_WS)*"
     fi
-    read -p "Pilihan versi [1-5] (default 4): " PHP_CHOICE
+    read -p "Pilihan versi [1-5] (default $DEFAULT_OPT): " PHP_CHOICE
+    [ -z "$PHP_CHOICE" ] && PHP_CHOICE="$DEFAULT_OPT"
     case $PHP_CHOICE in
         1|7.4|74) PHP_VER="7.4"; PHP_CONTAINER="php74"; PORT="8074" ;;
         2|8.0|80) PHP_VER="8.0"; PHP_CONTAINER="php80"; PORT="8080" ;;
@@ -130,9 +147,33 @@ else
     esac
 fi
 
-echo "$PHP_VER" > "$TARGET_DIR/.ws"
+if [ "$IS_CI3" = true ]; then
+    cat <<EOF > "$TARGET_DIR/.ws"
+php=$PHP_VER
+type=ci3
+entry=root
+ide=auto
+icon=auto
+EOF
+elif [ "$IS_LARAVEL" = true ]; then
+    cat <<EOF > "$TARGET_DIR/.ws"
+php=$PHP_VER
+type=laravel
+entry=public
+ide=auto
+icon=auto
+EOF
+else
+    cat <<EOF > "$TARGET_DIR/.ws"
+php=$PHP_VER
+type=native
+entry=root
+ide=auto
+icon=auto
+EOF
+fi
 chmod 666 "$TARGET_DIR/.ws" 2>/dev/null
-echo -e "${GREEN}✔ Versi PHP project diset ke PHP $PHP_VER (file .ws dibuat).${NC}"
+echo -e "${GREEN}✔ Konfigurasi project diset ke PHP $PHP_VER (file .ws dibuat).${NC}"
 
 # 4. Setup Lingkungan Laravel / File .env & Database
 DB_SAFE_NAME=$(echo "$REPO_NAME" | sed 's/[^a-zA-Z0-9_]/_/g')
