@@ -124,6 +124,7 @@ echo "php=$PHP_VER" > "$TARGET_DIR/.ws"
 echo "type=laravel" >> "$TARGET_DIR/.ws"
 echo "entry=public" >> "$TARGET_DIR/.ws"
 echo "ide=auto" >> "$TARGET_DIR/.ws"
+echo "icon=auto" >> "$TARGET_DIR/.ws"
 chmod 666 "$TARGET_DIR/.ws" 2>/dev/null
 
 WS_FILE="$TARGET_DIR/$PROJECT_NAME.code-workspace"

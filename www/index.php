@@ -330,7 +330,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 
     // Set versi PHP di .ws
-    $content = "php={$php}\ntype=laravel\nentry=public\nide=auto\n";
+    $content = "php={$php}\ntype=laravel\nentry=public\nide=auto\nicon=auto\n";
     @file_put_contents("./$name/.ws", $content);
     @chmod("./$name/.ws", 0666);
     ensure_code_workspace($name);
