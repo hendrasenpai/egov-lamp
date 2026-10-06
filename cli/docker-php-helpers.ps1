@@ -25,7 +25,9 @@ if ($scriptDir) {
 }
 
 if (-not $script:EGOV_ROOT -or -not (Test-Path "$script:EGOV_ROOT\docker-compose.yml")) {
-    if (Test-Path "C:\egov-lamp\docker-compose.yml") {
+    if (Test-Path "D:\egov-lamp\docker-compose.yml") {
+        $script:EGOV_ROOT = "D:\egov-lamp"
+    } elseif (Test-Path "C:\egov-lamp\docker-compose.yml") {
         $script:EGOV_ROOT = "C:\egov-lamp"
     } elseif (Test-Path "$PWD\docker-compose.yml") {
         $script:EGOV_ROOT = "$PWD"
