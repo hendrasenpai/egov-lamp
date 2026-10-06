@@ -176,10 +176,19 @@ if grep -qiE "microsoft|wsl" /proc/version 2>/dev/null; then
 
         local distro="${WSL_DISTRO_NAME:-Ubuntu}"
 
-        # 1. Prioritaskan Antigravity IDE (Code Editor) di Windows PATH
+        # 1. Paling Utama: Jika antigravity-ide sudah terdaftar di Windows PATH (Environment Variables)
+        if command -v cmd.exe >/dev/null 2>&1; then
+            if (command -v where.exe >/dev/null 2>&1 && where.exe antigravity-ide >/dev/null 2>&1) || \
+               cmd.exe /c "where antigravity-ide" >/dev/null 2>&1; then
+                cmd.exe /c antigravity-ide "$win_path" 2>/dev/null &
+                return
+            fi
+        fi
+
+        # Cek apakah ada binary di PATH WSL langsung
         for cmd in antigravity-ide.cmd antigravity-ide antigravity-ide.exe agy-ide.cmd; do
             if command -v "$cmd" >/dev/null 2>&1; then
-                "$cmd" --remote "wsl+$distro" "$abs_target" 2>/dev/null || "$cmd" "$win_path" 2>/dev/null &
+                "$cmd" "$win_path" 2>/dev/null &
                 return
             fi
         done
