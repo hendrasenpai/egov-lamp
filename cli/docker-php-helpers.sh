@@ -160,6 +160,16 @@ fix-perms() {
     echo -e "\033[0;32mSelesai! Semua permission sudah aman.\033[0m"
 }
 
+# Helper Clone Project dari Organisasi Diskominfo Bintan
+clone-project() {
+    if [ -f "$_EGOV_ROOT/cli/clone-project.sh" ]; then
+        bash "$_EGOV_ROOT/cli/clone-project.sh" "$@"
+    else
+        echo -e "\033[0;31mError: Script clone-project.sh tidak ditemukan di $_EGOV_ROOT/cli/\033[0m"
+    fi
+}
+alias clone-repo='clone-project'
+
 # Integrasi Editor Google Antigravity IDE dari dalam WSL ke Windows
 if grep -qiE "microsoft|wsl" /proc/version 2>/dev/null; then
     antigravity() {

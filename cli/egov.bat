@@ -7,6 +7,12 @@ set "SCRIPT_DIR=%~dp0"
 cd /d "%SCRIPT_DIR%.."
 set "ROOT_DIR=%CD%"
 
+:: Dukung perintah langsung (contoh: egov clone <nama_repo>)
+if /i "%~1"=="clone" (
+    powershell -ExecutionPolicy Bypass -NoProfile -File "%SCRIPT_DIR%clone-project.ps1" -RepoInput "%~2" -PhpInput "%~3"
+    exit /b %ERRORLEVEL%
+)
+
 :MENU
 cls
 echo =====================================================
@@ -22,10 +28,11 @@ echo   [3] Nyalakan SEMUA Versi PHP Sekaligus
 echo   [4] Matikan Semua Container egov-lamp
 echo   [5] Cek Status Container Aktif
 echo   [6] Pasang Shortcut CLI ke PowerShell (php74, composer74, artisan, dll)
+echo   [7] Clone Project dari GitHub (tim-it-diskominfobintan)
 echo   [0] Keluar
 echo.
 set "ACTION_CHOICE="
-set /p "ACTION_CHOICE=Masukkan pilihan [0-6]: "
+set /p "ACTION_CHOICE=Masukkan pilihan [0-7]: "
 
 if "%ACTION_CHOICE%"=="1" goto CHOOSE_PHP
 if "%ACTION_CHOICE%"=="2" goto START_DEFAULT
@@ -33,6 +40,7 @@ if "%ACTION_CHOICE%"=="3" goto START_ALL
 if "%ACTION_CHOICE%"=="4" goto STOP_ALL
 if "%ACTION_CHOICE%"=="5" goto STATUS
 if "%ACTION_CHOICE%"=="6" goto SETUP_PS
+if "%ACTION_CHOICE%"=="7" goto CLONE_REPO
 if "%ACTION_CHOICE%"=="0" goto EXIT
 goto INVALID
 
@@ -132,9 +140,16 @@ echo.
 pause
 goto MENU
 
+:CLONE_REPO
+echo.
+powershell -ExecutionPolicy Bypass -NoProfile -File "%SCRIPT_DIR%clone-project.ps1"
+echo.
+pause
+goto MENU
+
 :INVALID
 echo.
-echo Pilihan tidak valid! Pastikan Anda memasukkan angka 0 sampai 6.
+echo Pilihan tidak valid! Pastikan Anda memasukkan angka 0 sampai 7.
 echo.
 pause
 goto MENU

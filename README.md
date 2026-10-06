@@ -49,6 +49,7 @@ Stack ini memungkinkan Anda menjalankan berbagai aplikasi web pemerintah daerah 
   - Tersedia shortcut eksplisit: `php74`..`php83`, `composer74`..`composer83`, `artisan74`..`artisan83`.
   - Fitur **Auto-Wakeup**: Jika container yang dipanggil belum aktif, helper CLI akan menyalakannya secara otomatis.
 - **Auto-Fix Permissions (`fix-perms`)**: Perbaiki masalah *permission denied* pada folder `storage/`, `bootstrap/cache/`, dan file `.ws` dalam sekejap.
+- **Auto-Clone & Setup Project Diskominfo**: Ambil repository dari organisasi GitHub [tim-it-diskominfobintan](https://github.com/tim-it-diskominfobintan) dalam 1 perintah (`egov clone <nama_repo>` atau menu `[7]`). Otomatis konfigurasi file `.ws`, `.env` MariaDB, permission, dan Composer!
 
 ---
 
@@ -265,6 +266,7 @@ Pilih aksi yang ingin dilakukan:
   4) Matikan Semua Container egov-lamp
   5) Cek Status Container Aktif
   6) Perbaiki Permission Folder (fix-perms)
+  7) Clone Project dari GitHub (tim-it-diskominfobintan)
   0) Keluar
 ```
 
@@ -284,6 +286,8 @@ Pilih aksi yang ingin dilakukan:
   Menampilkan tabel container yang sedang hidup beserta port mapping-nya.
 - **`[6] Perbaiki Permission Folder (fix-perms)`**:
   Mereset hak akses direktori `storage/` dan `bootstrap/cache/` Laravel menjadi writable (`777`) di semua project.
+- **`[7] Clone Project dari GitHub (tim-it-diskominfobintan)`**:
+  Mengunduh repository dari organisasi [tim-it-diskominfobintan](https://github.com/tim-it-diskominfobintan), otomatis membuat konfigurasi `.ws`, menyiapkan `.env` database Docker, mengatur permission, dan menawarkan instalasi Composer.
 
 ---
 
@@ -324,6 +328,31 @@ Jika Anda ingin memaksa menjalankan perintah dengan versi PHP tertentu:
 ### 3. Auto-Wakeup & Path Translation Cerdas
 - **Auto-Wakeup**: Jika Anda menjalankan `artisan82 migrate` tetapi container PHP 8.2 belum hidup, sistem akan secara otomatis menyalakan container tersebut tanpa Anda harus membuka Docker Desktop atau menu launcher terlebih dahulu!
 - **Path Mapping**: Ketika Anda berada di folder `www/b-smart/app/Models` di host, helper secara presisi mengeksekusi perintah di dalam path container yang sesuai (`/var/www/html/b-smart/app/Models`).
+
+### 4. Clone & Setup Project Otomatis (`egov clone`)
+Untuk mengunduh project baru dari organisasi resmi GitHub [tim-it-diskominfobintan](https://github.com/tim-it-diskominfobintan), Anda tidak perlu lagi melakukan clone manual, membuat `.env`, atau mengetik perintah docker. Cukup ketik:
+
+```bash
+# 1. Mode Interaktif (akan menanyakan nama repo, versi PHP, dan opsi lainnya):
+egov clone
+
+# 2. Langsung sebutkan nama repository:
+egov clone web_bintan
+
+# 3. Langsung tentukan versi PHP (misal PHP 8.2):
+egov clone b-smart 82
+
+# 4. Alias shortcut praktis:
+clone-project ak1_disnaker
+```
+
+**Alur yang Dijalankan Secara Otomatis:**
+1. Meng-clone repo dari `https://github.com/tim-it-diskominfobintan/<nama-repo>.git` ke `www/<nama-repo>/`.
+2. Membuat file konfigurasi `.ws` sesuai versi PHP yang dipilih.
+3. Menyiapkan file `.env` Laravel dengan koneksi database MariaDB Docker (`DB_HOST=database`, `DB_PORT=3306`, `DB_USERNAME=root`, `DB_PASSWORD=tiger`, `DB_DATABASE=<nama_project>`).
+4. Memperbaiki izin tulis (*permissions*) pada folder `storage/`, `bootstrap/cache/`, dan `.ws`.
+5. Menawarkan eksekusi `composer install` dan `artisan key:generate` langsung di dalam container PHP yang sesuai.
+6. Menawarkan untuk membuka project langsung ke **Antigravity IDE** atau **VS Code**!
 
 ---
 
@@ -710,6 +739,27 @@ Dari dalam terminal WSL 2 di folder project (misalnya `~/egov-lamp/www/web_binta
      cat ~/.ssh/id_ed25519.pub
      ```
   3. Buka GitHub di browser ➔ **Settings** ➔ **SSH and GPG keys** ➔ Klik **New SSH Key** ➔ Paste key tersebut lalu simpan.
+
+---
+
+### Q10: Bagaimana cara clone dan setup project baru dari GitHub tim-it-diskominfobintan?
+**Solusi**:
+Gunakan fitur bawaan `egov clone` yang dirancang khusus untuk tim developer Diskominfo Bintan:
+```bash
+egov clone <nama_repository>
+# Contoh:
+egov clone web_bintan
+# Atau di Windows PowerShell / CMD:
+egov clone web_bintan
+```
+Atau buka menu launcher `egov` lalu pilih menu **`[7] Clone Project dari GitHub`**.
+
+Script secara otomatis:
+1. Mengunduh source code dari `https://github.com/tim-it-diskominfobintan/<nama_repository>.git` ke `www/<nama_repository>/`.
+2. Mengonfigurasi versi PHP di file `.ws`.
+3. Menyiapkan file `.env` Laravel dengan koneksi database container MariaDB.
+4. Menjalankan `fix-perms` agar direktori project dan `storage/` langsung writable.
+5. Menawarkan eksekusi `composer install` dan membuka ke editor (Antigravity IDE / VS Code).
 
 ---
 

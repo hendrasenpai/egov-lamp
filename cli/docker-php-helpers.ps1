@@ -181,5 +181,16 @@ function fix-perms {
     Write-Host "Selesai! Semua permission sudah aman." -ForegroundColor Green
 }
 
+# Helper Clone Project dari Organisasi Diskominfo Bintan
+function clone-project {
+    param([string]$RepoInput = "", [string]$PhpInput = "")
+    if (Test-Path "$_EGOV_ROOT\cli\clone-project.ps1") {
+        & "$_EGOV_ROOT\cli\clone-project.ps1" -RepoInput $RepoInput -PhpInput $PhpInput
+    } else {
+        Write-Host "Error: Script clone-project.ps1 tidak ditemukan di $_EGOV_ROOT\cli\" -ForegroundColor Red
+    }
+}
+Set-Alias clone-repo clone-project
+
 Write-Host "EGOV-LAMP PowerShell Helpers loaded!" -ForegroundColor Green
-Write-Host "Commands available: egov, php, composer, artisan, php74..83, composer74..83, artisan74..83, fix-perms" -ForegroundColor Cyan
+Write-Host "Commands available: egov, clone-project, php, composer, artisan, php74..83, fix-perms" -ForegroundColor Cyan
