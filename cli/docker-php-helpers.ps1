@@ -142,7 +142,26 @@ function artisan74 { Invoke-EgovDocker "php74" "php" "artisan" @args }
 function artisan80 { Invoke-EgovDocker "php80" "php" "artisan" @args }
 function artisan81 { Invoke-EgovDocker "php81" "php" "artisan" @args }
 function artisan82 { Invoke-EgovDocker "php82" "php" "artisan" @args }
-function artisan83 { Invoke-EgovDocker "php83" "php" "artisan" @args }
+# Fix permissions untuk Laravel storage, cache, .ws, dan vhosts
+function fix-perms {
+    $container = docker ps --format '{{.Names}}' | Where-Object { $_ -match '^egov-php' } | Select-Object -First 1
+    if (-not $container) {
+        Write-Host "Tidak ada container PHP yang aktif." -ForegroundColor Red
+        return
+    }
+    Write-Host "Memperbaiki permission storage, cache, .ws, dan vhosts..." -ForegroundColor Yellow
+    docker exec $container bash -c '
+        chmod -R 777 /etc/apache2/sites-enabled 2>/dev/null
+        for d in /var/www/html/*/ ; do
+            [ -f "$d/.ws" ] && chmod 666 "$d/.ws" 2>/dev/null
+            if [ -d "$d/storage" ] || [ -d "$d/bootstrap/cache" ]; then
+                chmod -R 777 "$d/storage" "$d/bootstrap/cache" 2>/dev/null
+                echo "✔ Fixed: $(basename "$d")"
+            fi
+        done
+    '
+    Write-Host "Selesai! Semua permission sudah aman." -ForegroundColor Green
+}
 
 Write-Host "EGOV-LAMP PowerShell Helpers loaded!" -ForegroundColor Green
-Write-Host "Commands available: egov, php74..83, composer74..83, artisan74..83, composer, artisan" -ForegroundColor Cyan
+Write-Host "Commands available: egov, php, composer, artisan, php74..83, composer74..83, artisan74..83, fix-perms" -ForegroundColor Cyan
