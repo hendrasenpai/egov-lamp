@@ -21,9 +21,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $php = $_POST['php'] ?? '7.4';
     $type = $_POST['type'] ?? 'auto';
     $entry = $_POST['entry'] ?? 'auto';
+    $ide = preg_replace('/[^a-zA-Z0-9_\-]/', '', $_POST['ide'] ?? 'auto');
 
     if ($project && is_dir("./$project")) {
-        $content = "php={$php}\ntype={$type}\nentry={$entry}\n";
+        $content = "php={$php}\ntype={$type}\nentry={$entry}\nide={$ide}\n";
         $saved = @file_put_contents("./$project/.ws", $content);
         if ($saved !== false) {
             echo json_encode(['success' => true]);
@@ -247,12 +248,14 @@ foreach ($all_items as $item) {
         $custom_php = '7.4';
         $custom_type = 'auto';
         $custom_entry = 'auto';
+        $custom_ide = 'auto';
 
         if ($has_custom_ws) {
             $ws_data = parse_ini_file($ws_file);
             $custom_php = $ws_data['php'] ?? '7.4';
             $custom_type = $ws_data['type'] ?? 'auto';
             $custom_entry = $ws_data['entry'] ?? 'auto';
+            $custom_ide = $ws_data['ide'] ?? 'auto';
         }
 
         // Deteksi Tipe Framework
@@ -295,7 +298,8 @@ foreach ($all_items as $item) {
             'port' => $target_port,
             'has_custom' => $has_custom_ws,
             'raw_type' => $custom_type,
-            'raw_entry' => $custom_entry
+            'raw_entry' => $custom_entry,
+            'raw_ide' => $custom_ide
         ];
     } elseif (pathinfo($item, PATHINFO_EXTENSION) === 'php') {
         $php_files[] = $item;
@@ -343,6 +347,23 @@ foreach ($all_items as $item) {
         .nav-pills .nav-link.active { background-color: #0284c7; color: #fff; }
         .repo-card { transition: transform 0.15s ease, border-color 0.15s ease; background-color: #1e293b; border: 1px solid #334155; }
         .repo-card:hover { transform: translateY(-3px); border-color: #38bdf8; }
+
+        /* IDE Button Visibility: Global Preferences */
+        body.hide-vscode .btn-ide-vscode { display: none !important; }
+        body.hide-antigravity .btn-ide-antigravity { display: none !important; }
+
+        /* IDE Button Visibility: Per-Project Override via data-ide */
+        .project-item[data-ide="none"] .btn-ide-vscode,
+        .project-item[data-ide="none"] .btn-ide-antigravity { display: none !important; }
+
+        .project-item[data-ide="vscode"] .btn-ide-antigravity { display: none !important; }
+        .project-item[data-ide="vscode"] .btn-ide-vscode { display: inline-flex !important; }
+
+        .project-item[data-ide="antigravity"] .btn-ide-vscode { display: none !important; }
+        .project-item[data-ide="antigravity"] .btn-ide-antigravity { display: inline-flex !important; }
+
+        .project-item[data-ide="both"] .btn-ide-vscode,
+        .project-item[data-ide="both"] .btn-ide-antigravity { display: inline-flex !important; }
     </style>
 </head>
 <body>
@@ -423,6 +444,9 @@ foreach ($all_items as $item) {
                         <button class="btn btn-sm btn-outline-secondary" onclick="openTokenModal()" title="Pengaturan GitHub Token">
                             <i class="bi bi-key"></i>
                         </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="openPreferencesModal()" title="Pengaturan Tampilan Dashboard">
+                            <i class="bi bi-toggles"></i>
+                        </button>
                     </div>
                 </div>
 
@@ -432,7 +456,7 @@ foreach ($all_items as $item) {
                     <div class="tab-pane fade show active" id="pane-local" role="tabpanel">
                         <div class="row g-3" id="projectGrid">
                             <?php foreach ($projects as $p): ?>
-                                <div class="col-md-6 project-item" data-name="<?= strtolower($p['name']) ?>" data-php-port="<?= $p['port'] ?>" data-php-ver="<?= $p['php_version'] ?>">
+                                <div class="col-md-6 project-item" data-name="<?= strtolower($p['name']) ?>" data-php-port="<?= $p['port'] ?>" data-php-ver="<?= $p['php_version'] ?>" data-ide="<?= htmlspecialchars($p['raw_ide']) ?>">
                                     <div class="card project-card h-100 p-3">
                                         <div class="d-flex justify-content-between align-items-start mb-2">
                                             <h6 class="card-title fw-bold mb-0 text-truncate font-monospace" style="max-width: 55%;">
@@ -455,14 +479,14 @@ foreach ($all_items as $item) {
                                         <div class="mt-auto d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
                                             <div class="d-flex gap-1 flex-wrap">
                                                 <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" 
-                                                        onclick="openSettingModal('<?= $p['name'] ?>', '<?= $p['php_version'] ?>', '<?= $p['raw_type'] ?>', '<?= $p['raw_entry'] ?>')">
+                                                        onclick="openSettingModal('<?= $p['name'] ?>', '<?= $p['php_version'] ?>', '<?= $p['raw_type'] ?>', '<?= $p['raw_entry'] ?>', '<?= $p['raw_ide'] ?>')">
                                                     <i class="bi bi-gear me-1"></i>Setting
                                                 </button>
-                                                <button type="button" class="btn btn-sm btn-outline-info py-0 px-2" style="font-size: 0.75rem;" title="Buka di VS Code" 
+                                                <button type="button" class="btn btn-sm btn-outline-info py-0 px-2 btn-ide-vscode" style="font-size: 0.75rem;" title="Buka di VS Code" 
                                                         onclick="openInVSCode('<?= htmlspecialchars($p['name']) ?>')">
                                                     <i class="bi bi-code-slash me-1"></i>VS Code
                                                 </button>
-                                                <button type="button" class="btn btn-sm btn-outline-purple py-0 px-2" style="font-size: 0.75rem;" title="Buka di Antigravity IDE" 
+                                                <button type="button" class="btn btn-sm btn-outline-purple py-0 px-2 btn-ide-antigravity" style="font-size: 0.75rem;" title="Buka di Antigravity IDE" 
                                                         onclick="openInAntigravity('<?= htmlspecialchars($p['name']) ?>')">
                                                     <i class="bi bi-rocket-takeoff me-1"></i>Antigravity
                                                 </button>
@@ -607,11 +631,66 @@ foreach ($all_items as $item) {
                                 <option value="root">Langsung Root (Tanpa /public)</option>
                             </select>
                         </div>
+
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small fw-bold">TOMBOL EDITOR IDE</label>
+                            <select class="form-select bg-dark text-light border-secondary" name="ide" id="selectIde">
+                                <option value="auto">Auto (Ikuti Pengaturan Global Tampilan)</option>
+                                <option value="antigravity">Hanya Tombol Antigravity</option>
+                                <option value="vscode">Hanya Tombol VS Code</option>
+                                <option value="both">Paksa Tampilkan Keduanya</option>
+                                <option value="none">Sembunyikan Semua Tombol IDE</option>
+                            </select>
+                        </div>
                     </form>
                 </div>
                 <div class="modal-footer border-secondary">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                     <button type="button" class="btn btn-primary" id="btnSaveSetting" onclick="saveProjectSetting()">Simpan Pengaturan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Pengaturan Tampilan Dashboard -->
+    <div class="modal fade" id="preferencesModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark border-secondary text-light">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title"><i class="bi bi-sliders2 me-2 text-info"></i>Pengaturan Tampilan Dashboard</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 class="text-uppercase text-secondary fw-bold small mb-3">Tombol Editor / IDE di Kartu Project</h6>
+                    
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="prefShowVSCode" checked onchange="updateIdePreferences()">
+                        <label class="form-check-label" for="prefShowVSCode">
+                            <i class="bi bi-code-slash text-info me-1"></i> Tampilkan Tombol <strong>VS Code</strong>
+                        </label>
+                    </div>
+
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="prefShowAntigravity" checked onchange="updateIdePreferences()">
+                        <label class="form-check-label" for="prefShowAntigravity">
+                            <i class="bi bi-rocket-takeoff text-purple me-1"></i> Tampilkan Tombol <strong>Antigravity IDE</strong>
+                        </label>
+                    </div>
+
+                    <hr class="border-secondary my-3">
+
+                    <h6 class="text-uppercase text-secondary fw-bold small mb-2">Path Folder Host / WSL</h6>
+                    <p class="small text-secondary mb-2">Path absolut folder <code>www</code> di komputer host Anda untuk integrasi tombol IDE:</p>
+                    <div class="input-group input-group-sm">
+                        <input type="text" class="form-control bg-dark text-light border-secondary font-monospace" id="prefHostPath" placeholder="/home/username/workspace/egov/www">
+                        <button class="btn btn-outline-info" type="button" onclick="saveHostPathPref()">Simpan</button>
+                    </div>
+                    <div class="form-text text-secondary small mt-1">
+                        Contoh: <code>/home/hendra/workspace/egov/www</code>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">Selesai</button>
                 </div>
             </div>
         </div>
@@ -815,12 +894,13 @@ foreach ($all_items as $item) {
 
         // Modal Setting Logic
         let settingModalInstance = null;
-        function openSettingModal(project, php, type, entry) {
+        function openSettingModal(project, php, type, entry, ide) {
             document.getElementById('modalProjectName').textContent = project;
             document.getElementById('inputProject').value = project;
             document.getElementById('selectPhp').value = php || '7.4';
             document.getElementById('selectType').value = type || 'auto';
             document.getElementById('selectEntry').value = entry || 'auto';
+            document.getElementById('selectIde').value = ide || 'auto';
 
             if (!settingModalInstance) {
                 settingModalInstance = new bootstrap.Modal(document.getElementById('settingModal'));
@@ -854,6 +934,59 @@ foreach ($all_items as $item) {
                 btn.disabled = false;
                 btn.textContent = 'Simpan Pengaturan';
             });
+        }
+
+        // Dashboard Preferences Modal Logic
+        let preferencesModalInstance = null;
+
+        function applyIdePreferences() {
+            const showVSCode = localStorage.getItem('egov_pref_vscode') !== 'false';
+            const showAntigravity = localStorage.getItem('egov_pref_antigravity') !== 'false';
+
+            document.body.classList.toggle('hide-vscode', !showVSCode);
+            document.body.classList.toggle('hide-antigravity', !showAntigravity);
+
+            const chkVSC = document.getElementById('prefShowVSCode');
+            const chkAGY = document.getElementById('prefShowAntigravity');
+            if (chkVSC) chkVSC.checked = showVSCode;
+            if (chkAGY) chkAGY.checked = showAntigravity;
+
+            const hostPath = localStorage.getItem('egov_host_path') || localStorage.getItem('gov_host_path') || '';
+            const inputHostPath = document.getElementById('prefHostPath');
+            if (inputHostPath) inputHostPath.value = hostPath;
+        }
+
+        function updateIdePreferences() {
+            const showVSCode = document.getElementById('prefShowVSCode').checked;
+            const showAntigravity = document.getElementById('prefShowAntigravity').checked;
+
+            localStorage.setItem('egov_pref_vscode', showVSCode ? 'true' : 'false');
+            localStorage.setItem('egov_pref_antigravity', showAntigravity ? 'true' : 'false');
+
+            applyIdePreferences();
+            showToast('<i class="bi bi-check-circle-fill text-success me-2"></i>Preferensi tampilan editor diperbarui!');
+        }
+
+        function openPreferencesModal() {
+            applyIdePreferences();
+            if (!preferencesModalInstance) {
+                preferencesModalInstance = new bootstrap.Modal(document.getElementById('preferencesModal'));
+            }
+            preferencesModalInstance.show();
+        }
+
+        function saveHostPathPref() {
+            const input = document.getElementById('prefHostPath');
+            if (input) {
+                const val = input.value.trim().replace(/\/+$/, '');
+                if (val) {
+                    localStorage.setItem('egov_host_path', val);
+                    showToast(`<i class="bi bi-check-circle-fill text-success me-2"></i>Host path disimpan: <code>${val}</code>`);
+                } else {
+                    localStorage.removeItem('egov_host_path');
+                    showToast('<i class="bi bi-info-circle text-info me-2"></i>Host path direset.');
+                }
+            }
         }
 
         // Open in VS Code
@@ -1138,8 +1271,9 @@ foreach ($all_items as $item) {
             });
         }
 
-        // Auto-fetch GitHub count on page load
+        // Init on page load: Apply IDE preferences and fetch GitHub count
         document.addEventListener('DOMContentLoaded', function() {
+            applyIdePreferences();
             loadGitHubRepos(false);
         });
     </script>

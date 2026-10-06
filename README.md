@@ -499,26 +499,33 @@ Jika Anda menggunakan aplikasi manajemen database di laptop Anda:
 Dashboard web `egov-lamp` (tersedia di port `8074`, `8080`, `8081`, `8082`, dan `8083`) dilengkapi dengan sistem tab interaktif, penjelajah repository GitHub, dan integrasi IDE modern:
 
 ```text
-┌────────────────────────────────────────────────────────────────────────┐
-│ [📁 Project Lokal (12)]   [☁️ GitHub Repo (4)]    [ 🔍 Cari... ]  [🔑] │
-├────────────────────────────────────────────────────────────────────────┤
-│ ┌──────────────────────────────────┐  ┌──────────────────────────────┐ │
-│ │ 📁 b-smart          [🟢 PHP 8.2] │  │ ☁️ web_disnaker     [Public] │ │
-│ │ Laravel Application              │  │ Web resmi Disnaker Bintan    │ │
-│ │ ──────────────────────────────── │  │ ──────────────────────────── │ │
-│ │ [⚙️ Setting] [</> Code] [🪐 IDE] │  │ [GitHub ↗] [📋 CLI] [⬇ Clone]│ │
-│ │                         [🚀 Buka]│  │                              │ │
-│ └──────────────────────────────────┘  └──────────────────────────────┘ │
-└────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────┐
+│ [📁 Project Lokal (12)]   [☁️ GitHub Repo (4)]   [ 🔍 Cari... ] [🔑] [⚙️]  │
+├────────────────────────────────────────────────────────────────────────────┤
+│ ┌──────────────────────────────────┐  ┌──────────────────────────────────┐ │
+│ │ 📁 b-smart          [🟢 PHP 8.2] │  │ ☁️ web_disnaker         [Public] │ │
+│ │ Laravel Application              │  │ Web resmi Disnaker Bintan        │ │
+│ │ ──────────────────────────────── │  │ ──────────────────────────────── │ │
+│ │ [⚙️ Setting] [</> Code] [🪐 IDE] │  │ [GitHub ↗]   [📋 CLI]  [⬇ Clone] │ │
+│ │                         [🚀 Buka]│  │                                  │ │
+│ └──────────────────────────────────┘  └──────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 1. Tab "Project Lokal"
 - **Live Health Indicator**: Titik di sudut kanan kartu menampilkan status real-time container PHP target (`🟢 Hijau` = Aktif & siap diakses, `🔴 Merah` = Container sedang mati).
 - **Tombol `🪐 Antigravity`**: Membuka project langsung ke **Google Antigravity IDE** (`antigravity://file...`) dan otomatis menyalin perintah terminal `antigravity www/<project>` ke clipboard sebagai fallback instan!
 - **Tombol `</> VS Code`**: Membuka project langsung ke Visual Studio Code host (`vscode://file...`).
-- **Modal `⚙️ Setting`**: Mengatur file konfigurasi `.ws` secara visual tanpa harus mengedit file teks (versi PHP, framework, dan entry path).
+- **Modal `⚙️ Setting` Project**: Mengatur file konfigurasi `.ws` secara visual tanpa harus mengedit file teks (versi PHP, framework, entry path, dan visibilitas tombol IDE per-project).
 
-### 2. Tab "GitHub Repo" (Integrasi Organisasi tim-it-diskominfobintan)
+### 2. Pengaturan Tampilan & Visibilitas IDE (`⚙️`)
+Tombol `⚙️` (Toggles) di toolbar atas membuka modal **"Pengaturan Tampilan Dashboard"**:
+- **Switch Toggle `VS Code`**: Sembunyikan atau tampilkan tombol VS Code di semua kartu project secara instan (tanpa reload).
+- **Switch Toggle `Antigravity`**: Sembunyikan atau tampilkan tombol Antigravity IDE.
+- **Path Folder Host / WSL**: Melihat dan mengedit path folder `www` host kapan saja (`/home/username/workspace/egov/www`).
+- *Preferensi disimpan otomatis di `localStorage` browser Anda.*
+
+### 3. Tab "GitHub Repo" (Integrasi Organisasi tim-it-diskominfobintan)
 - **Auto-Discovery Uncloned Repos**: Menampilkan daftar repository dari GitHub organisasi yang belum ada di folder `www/` lokal Anda secara otomatis.
 - **1-Click Clone dari Web**: Klik tombol **`Clone`**, pilih versi PHP target (7.4 - 8.3), dan sistem akan langsung melakukan clone, men-generate file `.ws`, membuat file `.env` dengan kredensial database MariaDB Docker, serta mengonfigurasi permission folder secara otomatis!
 - **Kunci Token (🔑)**: Mendukung penyimpanan GitHub Personal Access Token (PAT) secara aman di `.github_token` lokal untuk menampilkan repositori **Private** organisasi dan menaikkan batas rate limit GitHub API (dari 60 menjadi 5.000 request/jam).
@@ -529,7 +536,9 @@ Format file `.ws`:
 php=8.2
 type=laravel
 entry=public
+ide=auto
 ```
+*(Nilai `ide` yang didukung: `auto` [ikuti preferensi global], `antigravity` [hanya Antigravity], `vscode` [hanya VS Code], `both` [tampilkan keduanya], `none` [sembunyikan semua IDE]).*
 
 ---
 
