@@ -575,39 +575,429 @@ foreach ($projects as $p) {
     <title>eGov-LAMP — Diskominfo Kabupaten Bintan</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background-color: #0f172a; color: #f8fafc; }
-        .hero { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-bottom: 1px solid #334155; }
-        .project-card { transition: transform 0.15s ease, border-color 0.15s ease; background-color: #1e293b; border: 1px solid #334155; }
-        .project-card:hover { transform: translateY(-3px); border-color: #38bdf8; }
-        .badge-php { background-color: #6366f1; }
-        .badge-laravel { background-color: #ef4444; }
-        .badge-ci { background-color: #f97316; }
-        .search-box { background-color: #1e293b; border: 1px solid #334155; color: #fff; }
-        .search-box:focus { background-color: #1e293b; color: #fff; border-color: #38bdf8; box-shadow: none; }
-        .sidebar-card { background-color: #1e293b; border: 1px solid #334155; }
-        
+        :root {
+            --bg-canvas: #090d16;
+            --bg-card: #0f172a;
+            --bg-card-hover: #131d35;
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(56, 189, 248, 0.35);
+            --accent-primary: #0284c7;
+            --accent-cyan: #38bdf8;
+            --accent-emerald: #10b981;
+            --accent-rose: #f43f5e;
+            --accent-amber: #f59e0b;
+            --accent-purple: #a855f7;
+            --text-main: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+        }
+
+        body {
+            font-family: 'Sora', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-canvas);
+            color: var(--text-main);
+            background-image: 
+                radial-gradient(1000px 320px at 50% 0%, rgba(14, 165, 233, 0.08) 0%, transparent 80%),
+                radial-gradient(600px 300px at 100% 100%, rgba(99, 102, 241, 0.04) 0%, transparent 80%);
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+
+        ::selection {
+            background: rgba(56, 189, 248, 0.3);
+            color: #ffffff;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-canvas); }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* Command Header */
+        .app-header {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border-subtle);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .brand-emblem {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, rgba(2, 132, 199, 0.25) 0%, rgba(99, 102, 241, 0.15) 100%);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .badge-active-port {
+            background: rgba(56, 189, 248, 0.12);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            font-size: 0.72rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+        }
+
+        /* Engine Hub Pill Bar */
+        .engine-cluster {
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid var(--border-subtle);
+            padding: 3px;
+            border-radius: 30px;
+            display: inline-flex;
+            gap: 2px;
+        }
+
+        .btn-engine {
+            padding: 0.2rem 0.65rem;
+            border-radius: 20px;
+            font-size: 0.74rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border: 1px solid transparent;
+            text-decoration: none;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .btn-engine:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .btn-engine.status-active-port {
+            background: rgba(56, 189, 248, 0.15);
+            border-color: rgba(56, 189, 248, 0.4);
+            color: #fff !important;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+        }
+
+        /* Status Dot */
         .status-dot {
-            width: 8px;
-            height: 8px;
+            width: 7px;
+            height: 7px;
             border-radius: 50%;
             display: inline-block;
             margin-right: 5px;
+            transition: all 0.2s ease;
         }
-        .status-online { background-color: #22c55e; box-shadow: 0 0 8px #22c55e; }
-        .status-offline { background-color: #64748b; }
-        .status-active-port { border-color: #38bdf8 !important; color: #38bdf8 !important; }
+        .status-online { 
+            background-color: var(--accent-emerald); 
+            box-shadow: 0 0 8px var(--accent-emerald); 
+        }
+        .status-offline { 
+            background-color: var(--text-muted); 
+        }
 
-        /* Custom buttons & tabs */
-        .btn-outline-purple { color: #c084fc; border-color: #a855f7; }
-        .btn-outline-purple:hover { background-color: #a855f7; color: #fff; }
-        .badge-private { background-color: #f59e0b; color: #000; }
-        .badge-public { background-color: #06b6d4; color: #000; }
-        .nav-pills .nav-link { color: #94a3b8; border-radius: 8px; font-weight: 500; }
-        .nav-pills .nav-link:hover { color: #f8fafc; }
-        .nav-pills .nav-link.active { background-color: #0284c7; color: #fff; }
-        .repo-card { transition: transform 0.15s ease, border-color 0.15s ease; background-color: #1e293b; border: 1px solid #334155; }
-        .repo-card:hover { transform: translateY(-3px); border-color: #38bdf8; }
+        /* Navigation Pills */
+        .custom-pills {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-subtle);
+            padding: 4px;
+            border-radius: 10px;
+            gap: 4px;
+        }
+        .custom-pills .nav-link {
+            color: var(--text-secondary);
+            font-size: 0.82rem;
+            font-weight: 600;
+            border-radius: 7px;
+            padding: 0.35rem 0.75rem;
+            transition: all 0.15s ease;
+        }
+        .custom-pills .nav-link:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.04);
+        }
+        .custom-pills .nav-link.active {
+            background: var(--accent-primary);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
+        }
+        .badge-tab {
+            font-size: 0.7rem;
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Toolbar Actions */
+        .btn-primary-action {
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            color: #fff;
+            font-weight: 600;
+            font-size: 0.8rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(2, 132, 199, 0.25);
+            transition: all 0.15s ease;
+        }
+        .btn-primary-action:hover {
+            background: linear-gradient(135deg, #0369a1 0%, #0284c7 100%);
+            border-color: rgba(56, 189, 248, 0.6);
+            color: #fff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+        }
+
+        .search-input-wrap {
+            position: relative;
+            max-width: 220px;
+        }
+        .search-input-wrap .search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            pointer-events: none;
+        }
+        .custom-search-box {
+            background-color: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border-subtle);
+            color: #fff;
+            padding-left: 30px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            transition: all 0.15s ease;
+        }
+        .custom-search-box:focus {
+            background-color: #0f172a;
+            border-color: var(--accent-cyan);
+            color: #fff;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+        }
+
+        .btn-tool {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            border-radius: 8px;
+            padding: 0.3rem 0.6rem;
+            font-size: 0.82rem;
+            transition: all 0.15s ease;
+        }
+        .btn-tool:hover {
+            background: rgba(30, 41, 59, 0.9);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        /* Project Cards */
+        .project-card, .repo-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+        }
+        .project-card:hover, .repo-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--border-hover);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.45);
+            background: var(--bg-card-hover);
+        }
+
+        .project-icon-box {
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-subtle);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+
+        /* Badges */
+        .badge-engine {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-subtle);
+            color: var(--accent-cyan);
+            font-size: 0.68rem;
+            font-weight: 500;
+            border-radius: 6px;
+            padding: 0.2rem 0.45rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .badge-git-connected {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            color: #6ee7b7;
+            font-size: 0.68rem;
+            font-weight: 500;
+            border-radius: 6px;
+            padding: 0.2rem 0.45rem;
+        }
+
+        .badge-git-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #fcd34d;
+            font-size: 0.68rem;
+            font-weight: 500;
+            border-radius: 6px;
+            padding: 0.2rem 0.45rem;
+        }
+
+        .badge-framework-laravel {
+            background: rgba(244, 63, 94, 0.12);
+            border: 1px solid rgba(244, 63, 94, 0.25);
+            color: #fda4af;
+            font-size: 0.68rem;
+            font-weight: 600;
+            border-radius: 6px;
+            padding: 0.2rem 0.45rem;
+        }
+
+        .badge-framework-ci {
+            background: rgba(249, 115, 22, 0.12);
+            border: 1px solid rgba(249, 115, 22, 0.25);
+            color: #fdba74;
+            font-size: 0.68rem;
+            font-weight: 600;
+            border-radius: 6px;
+            padding: 0.2rem 0.45rem;
+        }
+
+        .badge-framework-native {
+            background: rgba(148, 163, 184, 0.1);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            color: #cbd5e1;
+            font-size: 0.68rem;
+            font-weight: 500;
+            border-radius: 6px;
+            padding: 0.2rem 0.45rem;
+        }
+
+        .badge-private { 
+            background: rgba(245, 158, 11, 0.15); 
+            border: 1px solid rgba(245, 158, 11, 0.35); 
+            color: #fbbf24; 
+        }
+        .badge-public { 
+            background: rgba(6, 182, 212, 0.15); 
+            border: 1px solid rgba(6, 182, 212, 0.35); 
+            color: #38bdf8; 
+        }
+
+        /* Card Action Buttons */
+        .btn-card-action {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            font-size: 0.72rem;
+            font-weight: 500;
+            padding: 0.2rem 0.55rem;
+            border-radius: 6px;
+            transition: all 0.15s ease;
+        }
+        .btn-card-action:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+        .btn-card-action.btn-ide-vscode:hover {
+            border-color: rgba(56, 189, 248, 0.4);
+            color: var(--accent-cyan);
+            background: rgba(56, 189, 248, 0.08);
+        }
+        .btn-card-action.btn-ide-antigravity:hover {
+            border-color: rgba(168, 85, 247, 0.4);
+            color: #d8b4fe;
+            background: rgba(168, 85, 247, 0.08);
+        }
+
+        .btn-card-open {
+            background: rgba(2, 132, 199, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            color: var(--accent-cyan);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.22rem 0.75rem;
+            border-radius: 6px;
+            text-decoration: none;
+            transition: all 0.15s ease;
+        }
+        .btn-card-open:hover {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
+        }
+
+        /* Sidebar Cards */
+        .sidebar-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+        }
+        .sidebar-featured-init {
+            background: linear-gradient(180deg, rgba(14, 165, 233, 0.08) 0%, rgba(15, 23, 42, 0.8) 100%);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+        }
+
+        .sidebar-link-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-main);
+            font-size: 0.82rem;
+            font-weight: 500;
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            text-decoration: none;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .sidebar-link-btn:hover {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            transform: translateX(2px);
+        }
+
+        .cred-item {
+            padding: 0.4rem 0.6rem;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+        }
+
+        /* Modals */
+        .modal-content {
+            background-color: #0f172a;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 14px;
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.7);
+        }
+        .modal-header {
+            border-bottom: 1px solid var(--border-subtle);
+            padding: 1rem 1.25rem;
+        }
+        .modal-footer {
+            border-top: 1px solid var(--border-subtle);
+            padding: 0.85rem 1.25rem;
+        }
 
         /* IDE Button Visibility: Global Preferences */
         body.hide-vscode .btn-ide-vscode { display: none !important; }
@@ -629,86 +1019,92 @@ foreach ($projects as $p) {
 </head>
 <body>
 
-    <!-- Top Navigation -->
-    <nav class="navbar navbar-expand-lg border-bottom border-secondary border-opacity-25 px-4 py-2">
+    <!-- Unified Command Header -->
+    <header class="app-header py-3 px-4 mb-4">
         <div class="container-fluid">
-            <span class="navbar-brand fw-bold text-info"><i class="bi bi-shield-check me-2"></i>E-GOVERNMENT DISKOMINFO BINTAN</span>
-            <div class="d-flex align-items-center gap-3">
-                <span class="badge bg-secondary font-monospace"><i class="bi bi-hdd-network me-1"></i>Port: <span id="current-port"></span></span>
-                <span class="badge badge-php font-monospace"><i class="bi bi-filetype-php me-1"></i>PHP <?= $php_version ?></span>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Hero Section -->
-    <div class="hero py-4 px-4 mb-4">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-md-7">
-                    <h1 class="h3 fw-bold mb-1">Portal Aplikasi e-Government Diskominfo Bintan</h1>
-                    <p class="text-secondary mb-0">Lingkungan kerja lokal terisolasi multi-PHP Bidang e-Government Diskominfo Kabupaten Bintan.</p>
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <!-- Brand & Stack Meta -->
+                <div class="d-flex align-items-center gap-3">
+                    <div class="brand-emblem">
+                        <i class="bi bi-shield-check text-info fs-5"></i>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2">
+                            <h1 class="h6 fw-bold mb-0 text-light tracking-tight">E-GOVERNMENT DISKOMINFO BINTAN</h1>
+                            <span class="badge badge-active-port font-monospace"><i class="bi bi-hdd-network me-1"></i>Port: <span id="current-port">...</span></span>
+                        </div>
+                        <div class="small text-secondary mt-0">
+                            Multi-PHP Isolated Development Stack • Active Container: <span class="text-info fw-semibold font-monospace">PHP <?= $php_version ?></span>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-5 text-md-end mt-3 mt-md-0">
-                    <div class="d-inline-flex flex-wrap gap-2 justify-content-md-end align-items-center">
-                        <span class="text-secondary small me-1"><i class="bi bi-cpu me-1"></i>PHP Containers:</span>
-                        
-                        <a href="http://localhost:8074" id="btn-php74" class="btn btn-sm btn-outline-secondary" data-port="8074">
+
+                <!-- PHP Engines Status Cluster -->
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="text-secondary small fw-medium me-1 d-none d-md-inline"><i class="bi bi-cpu me-1"></i>PHP Engines:</span>
+                    <div class="engine-cluster">
+                        <a href="http://localhost:8074" id="btn-php74" class="btn btn-engine" data-port="8074" title="PHP 7.4 (Port 8074)">
                             <span class="status-dot status-offline" id="dot-php74"></span>7.4
                         </a>
-                        <a href="http://localhost:8080" id="btn-php80" class="btn btn-sm btn-outline-secondary" data-port="8080">
+                        <a href="http://localhost:8080" id="btn-php80" class="btn btn-engine" data-port="8080" title="PHP 8.0 (Port 8080)">
                             <span class="status-dot status-offline" id="dot-php80"></span>8.0
                         </a>
-                        <a href="http://localhost:8081" id="btn-php81" class="btn btn-sm btn-outline-secondary" data-port="8081">
+                        <a href="http://localhost:8081" id="btn-php81" class="btn btn-engine" data-port="8081" title="PHP 8.1 (Port 8081)">
                             <span class="status-dot status-offline" id="dot-php81"></span>8.1
                         </a>
-                        <a href="http://localhost:8082" id="btn-php82" class="btn btn-sm btn-outline-secondary" data-port="8082">
+                        <a href="http://localhost:8082" id="btn-php82" class="btn btn-engine" data-port="8082" title="PHP 8.2 (Port 8082)">
                             <span class="status-dot status-offline" id="dot-php82"></span>8.2
                         </a>
-                        <a href="http://localhost:8083" id="btn-php83" class="btn btn-sm btn-outline-secondary" data-port="8083">
+                        <a href="http://localhost:8083" id="btn-php83" class="btn btn-engine" data-port="8083" title="PHP 8.3 (Port 8083)">
                             <span class="status-dot status-offline" id="dot-php83"></span>8.3
                         </a>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </header>
 
-    <!-- Main Content -->
+    <!-- Main Content Grid -->
     <div class="container-fluid px-4">
         <div class="row g-4">
             
             <!-- Left Column: Project & GitHub Explorer -->
             <div class="col-lg-8">
-                <!-- Navigation Tabs & Toolbar -->
+                <!-- Navigation Tabs & Action Toolbar -->
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                    <ul class="nav nav-pills" id="projectTabs" role="tablist">
+                    <ul class="nav nav-pills custom-pills" id="projectTabs" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active py-1 px-3" id="tab-local" data-bs-toggle="pill" data-bs-target="#pane-local" type="button" role="tab">
-                                <i class="bi bi-folder2-open me-1 text-warning"></i>Project Lokal <span class="badge bg-secondary ms-1"><?= count($projects) ?></span>
+                            <button class="nav-link active d-flex align-items-center" id="tab-local" data-bs-toggle="pill" data-bs-target="#pane-local" type="button" role="tab">
+                                <i class="bi bi-folder2-open me-2 text-warning"></i>
+                                <span>Project Lokal</span>
+                                <span class="badge badge-tab ms-2"><?= count($projects) ?></span>
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link py-1 px-3" id="tab-github" data-bs-toggle="pill" data-bs-target="#pane-github" type="button" role="tab" onclick="loadGitHubRepos()">
-                                <i class="bi bi-github me-1 text-light"></i>GitHub Repo <span class="badge bg-info text-dark ms-1" id="githubUnclonedCount">...</span>
+                            <button class="nav-link d-flex align-items-center" id="tab-github" data-bs-toggle="pill" data-bs-target="#pane-github" type="button" role="tab" onclick="loadGitHubRepos()">
+                                <i class="bi bi-github me-2 text-light"></i>
+                                <span>GitHub Repo</span>
+                                <span class="badge badge-tab ms-2" id="githubUnclonedCount">...</span>
                             </button>
                         </li>
                     </ul>
 
                     <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <button type="button" class="btn btn-sm btn-primary py-1 px-3 d-flex align-items-center shadow-sm" onclick="openInitProjectModal()" title="Inisialisasi Project Baru (Template core-laravel)">
-                            <i class="bi bi-plus-circle-fill me-1"></i><span>Project Baru (Core Laravel)</span>
+                        <button type="button" class="btn btn-primary-action py-1 px-3 d-flex align-items-center" onclick="openInitProjectModal()" title="Inisialisasi Project Baru (Template core-laravel)">
+                            <i class="bi bi-plus-circle-fill me-1 text-info"></i>
+                            <span>Project Baru (Core Laravel)</span>
                         </button>
-                        <div class="input-group input-group-sm" style="max-width: 200px;">
-                            <span class="input-group-text bg-transparent border-secondary border-opacity-25 text-secondary"><i class="bi bi-search"></i></span>
-                            <input type="text" id="projectSearch" class="form-control search-box" placeholder="Cari project...">
+                        <div class="search-input-wrap">
+                            <i class="bi bi-search search-icon"></i>
+                            <input type="text" id="projectSearch" class="form-control form-control-sm custom-search-box" placeholder="Cari project...">
                         </div>
-                        <button class="btn btn-sm btn-outline-secondary" onclick="refreshActiveTab()" title="Muat ulang">
+                        <button class="btn btn-tool" onclick="refreshActiveTab()" title="Muat ulang">
                             <i class="bi bi-arrow-clockwise"></i>
                         </button>
-                        <button class="btn btn-sm btn-outline-secondary" onclick="openTokenModal()" title="Pengaturan GitHub Token">
+                        <button class="btn btn-tool" onclick="openTokenModal()" title="Pengaturan GitHub Token">
                             <i class="bi bi-key"></i>
                         </button>
-                        <button class="btn btn-sm btn-outline-secondary" onclick="openPreferencesModal()" title="Pengaturan Tampilan Dashboard">
+                        <button class="btn btn-tool" onclick="openPreferencesModal()" title="Pengaturan Tampilan Dashboard">
                             <i class="bi bi-toggles"></i>
                         </button>
                     </div>
@@ -719,9 +1115,9 @@ foreach ($projects as $p) {
                     <!-- Tab Pane 1: Local Projects -->
                     <div class="tab-pane fade show active" id="pane-local" role="tabpanel">
                         <?php if ($unconnected_github > 0): ?>
-                            <div class="alert alert-dark border-warning border-opacity-50 d-flex flex-wrap align-items-center justify-content-between py-2 px-3 mb-3">
-                                <div class="small">
-                                    <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+                            <div class="alert alert-dark border-warning border-opacity-40 d-flex flex-wrap align-items-center justify-content-between py-2 px-3 mb-3 rounded-3" style="background: rgba(245, 158, 11, 0.06);">
+                                <div class="small d-flex align-items-center">
+                                    <i class="bi bi-exclamation-triangle-fill text-warning fs-6 me-2"></i>
                                     <span>Terdapat <strong><?= $unconnected_github ?></strong> project lokal yang <strong>belum terhubung ke GitHub</strong>.</span>
                                 </div>
                                 <button class="btn btn-xs btn-outline-warning py-0 px-2 mt-1 mt-sm-0" style="font-size: 0.75rem;" id="btnToggleUnconnectedGit" onclick="toggleFilterUnconnectedGit()">
@@ -734,51 +1130,65 @@ foreach ($projects as $p) {
                             <?php foreach ($projects as $p): ?>
                                 <div class="col-md-6 project-item" data-name="<?= strtolower($p['name']) ?>" data-php-port="<?= $p['port'] ?>" data-php-ver="<?= $p['php_version'] ?>" data-ide="<?= htmlspecialchars($p['raw_ide']) ?>" data-has-github="<?= $p['git_info']['is_github'] ? '1' : '0' ?>">
                                     <div class="card project-card h-100 p-3">
-                                        <div class="d-flex justify-content-between align-items-start mb-2">
-                                            <h6 class="card-title fw-bold mb-0 text-truncate font-monospace" style="max-width: 50%;" title="<?= htmlspecialchars($p['name']) ?>">
-                                                <?= htmlspecialchars($p['name']) ?>
-                                            </h6>
-                                            <div class="d-flex gap-1 align-items-center flex-wrap justify-content-end">
-                                                <span class="badge bg-dark border border-secondary text-info font-monospace" style="font-size: 0.68rem;" id="port-status-<?= $p['name'] ?>" title="Port PHP <?= $p['port'] ?>">
+                                        <!-- Top Row: Name, Path & Badges -->
+                                        <div class="d-flex justify-content-between align-items-start mb-2 gap-2">
+                                            <div class="min-w-0 flex-grow-1">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="project-icon-box">
+                                                        <i class="bi bi-folder2 text-warning"></i>
+                                                    </span>
+                                                    <h6 class="card-title fw-bold mb-0 text-truncate font-monospace" title="<?= htmlspecialchars($p['name']) ?>">
+                                                        <?= htmlspecialchars($p['name']) ?>
+                                                    </h6>
+                                                </div>
+                                                <div class="text-secondary small font-monospace mt-1" style="font-size: 0.72rem;">
+                                                    www/<?= htmlspecialchars($p['name']) ?><?= ($p['type'] === 'Laravel') ? '<span class="text-info opacity-75">/public</span>' : '' ?>
+                                                </div>
+                                            </div>
+
+                                            <div class="d-flex gap-1 align-items-center flex-wrap justify-content-end flex-shrink-0">
+                                                <span class="badge badge-engine" id="port-status-<?= $p['name'] ?>" title="Port PHP <?= $p['port'] ?>">
                                                     <span class="status-dot status-offline" id="card-dot-<?= $p['name'] ?>"></span>PHP <?= $p['php_version'] ?>
                                                 </span>
                                                 <?php if ($p['git_info']['is_github']): ?>
-                                                    <span class="badge bg-dark border border-secondary text-secondary" style="font-size: 0.68rem;" title="Terhubung ke GitHub: <?= htmlspecialchars($p['git_info']['remote_url']) ?>">
-                                                        <i class="bi bi-github text-light me-1"></i>GitHub
+                                                    <span class="badge badge-git-connected" title="Terhubung ke GitHub: <?= htmlspecialchars($p['git_info']['remote_url']) ?>">
+                                                        <i class="bi bi-github me-1"></i>GitHub
                                                     </span>
                                                 <?php else: ?>
-                                                    <span class="badge bg-warning bg-opacity-10 border border-warning text-warning" style="font-size: 0.68rem;" title="<?= $p['git_info']['has_git'] ? 'Belum ada remote origin GitHub' : 'Folder ini belum menjadi git repository' ?>">
+                                                    <span class="badge badge-git-warning" title="<?= $p['git_info']['has_git'] ? 'Belum ada remote origin GitHub' : 'Folder ini belum menjadi git repository' ?>">
                                                         <i class="bi bi-exclamation-triangle-fill me-1"></i>Belum ke GitHub
                                                     </span>
                                                 <?php endif; ?>
                                                 <?php
-                                                    $badge_class = 'bg-secondary';
-                                                    if ($p['type'] === 'Laravel') $badge_class = 'badge-laravel';
-                                                    elseif (strpos($p['type'], 'CodeIgniter') !== false) $badge_class = 'badge-ci';
+                                                    $badge_class = 'badge-framework-native';
+                                                    if ($p['type'] === 'Laravel') $badge_class = 'badge-framework-laravel';
+                                                    elseif (strpos($p['type'], 'CodeIgniter') !== false) $badge_class = 'badge-framework-ci';
                                                 ?>
-                                                <span class="badge <?= $badge_class ?> text-white" style="font-size: 0.68rem;">
+                                                <span class="badge <?= $badge_class ?>">
                                                     <?= $p['type'] ?>
                                                 </span>
                                             </div>
                                         </div>
-                                        <div class="mt-auto d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
+
+                                        <!-- Bottom Action Bar -->
+                                        <div class="mt-auto d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-15">
                                             <div class="d-flex gap-1 flex-wrap">
-                                                <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" 
+                                                <button class="btn btn-sm btn-card-action" 
                                                         onclick="openSettingModal('<?= $p['name'] ?>', '<?= $p['php_version'] ?>', '<?= $p['raw_type'] ?>', '<?= $p['raw_entry'] ?>', '<?= $p['raw_ide'] ?>', <?= $p['git_info']['has_git'] ? 'true' : 'false' ?>, <?= $p['git_info']['is_github'] ? 'true' : 'false' ?>, '<?= htmlspecialchars(addslashes($p['git_info']['remote_url'])) ?>')">
                                                     <i class="bi bi-gear me-1"></i>Setting
                                                 </button>
-                                                <button type="button" class="btn btn-sm btn-outline-info py-0 px-2 btn-ide-vscode" style="font-size: 0.75rem;" title="Buka di VS Code" 
+                                                <button type="button" class="btn btn-sm btn-card-action btn-ide-vscode" title="Buka di VS Code" 
                                                         onclick="openInVSCode('<?= htmlspecialchars($p['name']) ?>')">
-                                                    <i class="bi bi-code-slash me-1"></i>VS Code
+                                                    <i class="bi bi-code-slash me-1 text-info"></i>VS Code
                                                 </button>
-                                                <button type="button" class="btn btn-sm btn-outline-purple py-0 px-2 btn-ide-antigravity" style="font-size: 0.75rem;" title="Buka di Antigravity IDE" 
+                                                <button type="button" class="btn btn-sm btn-card-action btn-ide-antigravity" title="Buka di Antigravity IDE" 
                                                         onclick="openInAntigravity('<?= htmlspecialchars($p['name']) ?>')">
-                                                    <i class="bi bi-rocket-takeoff me-1"></i>Antigravity
+                                                    <i class="bi bi-rocket-takeoff me-1 text-purple"></i>Antigravity
                                                 </button>
                                             </div>
-                                            <a href="<?= htmlspecialchars($p['link']) ?>" target="_blank" class="btn btn-sm btn-outline-primary py-1 px-3 ms-1"
+                                            <a href="<?= htmlspecialchars($p['link']) ?>" target="_blank" class="btn btn-sm btn-card-open ms-1"
                                                onclick="return checkContainerBeforeOpen(event, '<?= $p['port'] ?>', '<?= $p['php_version'] ?>')">
-                                                Buka <i class="bi bi-box-arrow-up-right ms-1"></i>
+                                                <span>Buka</span> <i class="bi bi-arrow-up-right ms-1"></i>
                                             </a>
                                         </div>
                                     </div>
@@ -833,7 +1243,7 @@ foreach ($projects as $p) {
             <!-- Right Column: Shortcuts & Quick Tools -->
             <div class="col-lg-4">
                 <!-- Featured Quick Action: Init Core Laravel Project -->
-                <div class="card sidebar-card p-3 mb-3 border-primary border-opacity-50">
+                <div class="card sidebar-card sidebar-featured-init p-3 mb-3">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <h6 class="fw-bold text-uppercase text-info mb-0" style="font-size: 0.8rem; letter-spacing: 0.05rem;">
                             <i class="bi bi-rocket-takeoff-fill me-1 text-warning"></i>Project Baru (Laravel)
@@ -843,46 +1253,59 @@ foreach ($projects as $p) {
                     <p class="text-secondary small mb-3" style="font-size: 0.78rem;">
                         Standard Diskominfo: clone otomatis dari <code>core-laravel</code>, reset git, database lokal, key:generate & migrate.
                     </p>
-                    <button type="button" class="btn btn-primary btn-sm py-2 w-100 fw-bold shadow-sm" onclick="openInitProjectModal()">
+                    <button type="button" class="btn btn-primary-action btn-sm py-2 w-100 fw-bold" onclick="openInitProjectModal()">
                         <i class="bi bi-plus-circle-fill me-1"></i> Inisialisasi Project Baru
                     </button>
                 </div>
 
+                <!-- Shortcuts & Tools -->
                 <div class="card sidebar-card p-3 mb-3">
-                    <h6 class="fw-bold text-uppercase text-secondary mb-3" style="font-size: 0.8rem; letter-spacing: 0.05rem;">
+                    <h6 class="fw-bold text-uppercase text-secondary mb-3" style="font-size: 0.78rem; letter-spacing: 0.05rem;">
                         <i class="bi bi-lightning-charge-fill me-1 text-warning"></i>Shortcut & Database
                     </h6>
                     <div class="d-grid gap-2">
-                        <a href="http://localhost:8888" target="_blank" class="btn btn-outline-success text-start d-flex justify-content-between align-items-center py-2">
-                            <span><i class="bi bi-database me-2"></i>phpMyAdmin (Port 8888)</span>
-                            <i class="bi bi-box-arrow-up-right"></i>
+                        <a href="http://localhost:8888" target="_blank" class="sidebar-link-btn">
+                            <span><i class="bi bi-database me-2 text-success"></i>phpMyAdmin (Port 8888)</span>
+                            <i class="bi bi-box-arrow-up-right text-secondary small"></i>
                         </a>
-                        <a href="test_db.php" target="_blank" class="btn btn-outline-secondary text-start d-flex justify-content-between align-items-center py-2">
-                            <span><i class="bi bi-check-circle me-2"></i>Test MySQLi Connection</span>
-                            <i class="bi bi-box-arrow-up-right"></i>
+                        <a href="test_db.php" target="_blank" class="sidebar-link-btn">
+                            <span><i class="bi bi-check-circle me-2 text-info"></i>Test MySQLi Connection</span>
+                            <i class="bi bi-box-arrow-up-right text-secondary small"></i>
                         </a>
-                        <a href="test_db_pdo.php" target="_blank" class="btn btn-outline-secondary text-start d-flex justify-content-between align-items-center py-2">
-                            <span><i class="bi bi-check2-all me-2"></i>Test PDO Connection</span>
-                            <i class="bi bi-box-arrow-up-right"></i>
+                        <a href="test_db_pdo.php" target="_blank" class="sidebar-link-btn">
+                            <span><i class="bi bi-check2-all me-2 text-cyan"></i>Test PDO Connection</span>
+                            <i class="bi bi-box-arrow-up-right text-secondary small"></i>
                         </a>
-                        <a href="phpinfo.php" target="_blank" class="btn btn-outline-secondary text-start d-flex justify-content-between align-items-center py-2">
-                            <span><i class="bi bi-info-circle me-2"></i>PHP Info (<?= $php_version ?>)</span>
-                            <i class="bi bi-box-arrow-up-right"></i>
+                        <a href="phpinfo.php" target="_blank" class="sidebar-link-btn">
+                            <span><i class="bi bi-info-circle me-2 text-secondary"></i>PHP Info (<?= $php_version ?>)</span>
+                            <i class="bi bi-box-arrow-up-right text-secondary small"></i>
                         </a>
                     </div>
                 </div>
 
                 <!-- Database Credential Info -->
                 <div class="card sidebar-card p-3 mb-3">
-                    <h6 class="fw-bold text-uppercase text-secondary mb-2" style="font-size: 0.8rem; letter-spacing: 0.05rem;">
+                    <h6 class="fw-bold text-uppercase text-secondary mb-2" style="font-size: 0.78rem; letter-spacing: 0.05rem;">
                         <i class="bi bi-key-fill me-1 text-info"></i>Koneksi Database Lokal
                     </h6>
-                    <ul class="list-unstyled small mb-0 font-monospace">
-                        <li class="mb-1"><span class="text-secondary">Host:</span> 127.0.0.1 (atau <code>database</code>)</li>
-                        <li class="mb-1"><span class="text-secondary">Port:</span> 3306</li>
-                        <li class="mb-1"><span class="text-secondary">User:</span> root / docker</li>
-                        <li><span class="text-secondary">Pass:</span> tiger / docker</li>
-                    </ul>
+                    <div class="d-grid gap-1 font-monospace small">
+                        <div class="cred-item d-flex justify-content-between align-items-center">
+                            <span class="text-secondary">Host:</span>
+                            <span class="text-light">127.0.0.1 / database</span>
+                        </div>
+                        <div class="cred-item d-flex justify-content-between align-items-center">
+                            <span class="text-secondary">Port:</span>
+                            <span class="text-light">3306</span>
+                        </div>
+                        <div class="cred-item d-flex justify-content-between align-items-center">
+                            <span class="text-secondary">User:</span>
+                            <span class="text-light">root / docker</span>
+                        </div>
+                        <div class="cred-item d-flex justify-content-between align-items-center">
+                            <span class="text-secondary">Pass:</span>
+                            <span class="text-light">tiger / docker</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1944,30 +2367,40 @@ foreach ($projects as $p) {
                 return `
                     <div class="col-md-6 github-repo-item" data-name="${escapeHtml(repo.name.toLowerCase())}" ${isHidden}>
                         <div class="card repo-card h-100 p-3">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h6 class="card-title fw-bold mb-0 text-truncate font-monospace" style="max-width: 60%;" title="${escapeHtml(repo.name)}">
-                                    <i class="bi bi-github me-1 text-secondary"></i>${escapeHtml(repo.name)}
-                                </h6>
-                                <div class="d-flex gap-1 align-items-center flex-wrap justify-content-end">
+                            <div class="d-flex justify-content-between align-items-start mb-2 gap-2">
+                                <div class="min-w-0 flex-grow-1">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="project-icon-box">
+                                            <i class="bi bi-github text-light"></i>
+                                        </span>
+                                        <h6 class="card-title fw-bold mb-0 text-truncate font-monospace" title="${escapeHtml(repo.name)}">
+                                            ${escapeHtml(repo.name)}
+                                        </h6>
+                                    </div>
+                                    <div class="text-secondary small font-monospace mt-1" style="font-size: 0.72rem;">
+                                        tim-it-diskominfobintan/${escapeHtml(repo.name)}
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-1 align-items-center flex-wrap justify-content-end flex-shrink-0">
                                     <span class="badge ${repo.is_private ? 'badge-private' : 'badge-public'}" style="font-size: 0.68rem;">
                                         ${repo.is_private ? '<i class="bi bi-lock-fill me-1"></i>Private' : '<i class="bi bi-globe me-1"></i>Public'}
                                     </span>
-                                    ${repo.language ? `<span class="badge bg-secondary text-light font-monospace" style="font-size: 0.68rem;">${escapeHtml(repo.language)}</span>` : ''}
+                                    ${repo.language ? `<span class="badge bg-secondary bg-opacity-25 border border-secondary text-light font-monospace" style="font-size: 0.68rem;">${escapeHtml(repo.language)}</span>` : ''}
                                 </div>
                             </div>
-                            <p class="text-secondary small mb-3 flex-grow-1" style="font-size: 0.8rem; min-height: 2.4rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;" title="${escapeHtml(repo.description)}">
+                            <p class="text-secondary small mb-3 flex-grow-1" style="font-size: 0.78rem; min-height: 2.3rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.45;" title="${escapeHtml(repo.description)}">
                                 ${escapeHtml(repo.description)}
                             </p>
-                            <div class="mt-auto d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
+                            <div class="mt-auto d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-15">
                                 <div class="d-flex gap-1">
-                                    <a href="${escapeHtml(repo.html_url)}" target="_blank" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" title="Lihat di GitHub">
+                                    <a href="${escapeHtml(repo.html_url)}" target="_blank" class="btn btn-sm btn-card-action" title="Lihat di GitHub">
                                         <i class="bi bi-box-arrow-up-right me-1"></i>GitHub
                                     </a>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" title="Salin Perintah CLI" onclick="copyCliClone('${escapeHtml(repo.name)}')">
+                                    <button type="button" class="btn btn-sm btn-card-action" title="Salin Perintah CLI" onclick="copyCliClone('${escapeHtml(repo.name)}')">
                                         <i class="bi bi-terminal me-1"></i>CLI
                                     </button>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-success py-1 px-3" onclick="openCloneModal('${escapeHtml(repo.name)}', '${escapeHtml(repo.clone_url)}')">
+                                <button type="button" class="btn btn-sm btn-card-open" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.35); color: #6ee7b7;" onclick="openCloneModal('${escapeHtml(repo.name)}', '${escapeHtml(repo.clone_url)}')">
                                     <i class="bi bi-cloud-arrow-down-fill me-1"></i>Clone
                                 </button>
                             </div>
