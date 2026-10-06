@@ -108,6 +108,11 @@ function Get-EgovTargetPhp {
 }
 
 # Smart CLI Auto-Routing berdasarkan .ws file di project
+function php {
+    $target = Get-EgovTargetPhp
+    Invoke-EgovDocker $target "php" @args
+}
+
 function artisan {
     $target = Get-EgovTargetPhp
     Invoke-EgovDocker $target "php" "artisan" @args

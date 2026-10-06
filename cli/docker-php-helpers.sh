@@ -70,6 +70,11 @@ _get_egov_target_php() {
 }
 
 # Smart CLI Auto-Routing
+php() {
+    local target=$(_get_egov_target_php)
+    _run_egov_docker "$target" php "$@"
+}
+
 artisan() {
     local target=$(_get_egov_target_php)
     _run_egov_docker "$target" php artisan "$@"
@@ -79,6 +84,7 @@ composer() {
     local target=$(_get_egov_target_php)
     _run_egov_docker "$target" composer "$@"
 }
+Composer() { composer "$@"; }
 
 # Explicit PHP CLI
 php74() { _run_egov_docker "php74" php "$@"; }
