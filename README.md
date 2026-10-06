@@ -6,16 +6,16 @@
 [![Redis](https://img.shields.io/badge/Redis-6379-dc382d?logo=redis&logoColor=white)](https://redis.io)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ed?logo=docker&logoColor=white)](https://docker.com)
 
-Lingkungan pengembangan lokal modern berbasis **Docker Compose** yang dirancang khusus untuk menangani berbagai project web PHP legacy hingga modern (Laravel 8–11, CodeIgniter 3/4, Native PHP) secara terisolasi tanpa perlu menginstall PHP atau MySQL di mesin host.
+Lingkungan pengembangan lokal modern berbasis **Docker Compose** yang dirancang khusus untuk menangani berbagai project web PHP legacy hingga modern (Laravel 8–11, CodeIgniter 3, Native PHP) secara terisolasi tanpa perlu menginstall PHP atau MySQL di mesin host.
 
 ---
 
 ## 🌟 Fitur Unggulan
 
 - **Multi-PHP Paralel / On-Demand**: Mendukung PHP **7.4, 8.0, 8.1, 8.2, dan 8.3** sekaligus dalam port berbeda.
-- **Interactive Terminal Launcher (`egov` / `gov`)**: Menu terminal interaktif untuk menyalakan/mematikan container hanya dengan memilih nomor.
+- **Interactive Terminal Launcher (`egov`)**: Menu terminal interaktif untuk menyalakan/mematikan container hanya dengan memilih nomor.
 - **Smart Web Dashboard**:
-  - Deteksi otomatis framework project (**Laravel**, **CodeIgniter 3**, **CodeIgniter 4**, **PHP Native**).
+  - Deteksi otomatis framework project (**Laravel**, **CodeIgniter 3**, **PHP Native**).
   - Indikator status container aktif secara *real-time* (live ping).
   - Tombol **`< / > VS Code`** untuk membuka project langsung di editor.
   - Modal **`⚙️ Setting`** untuk menentukan versi PHP per-project via file `.ws`.
@@ -70,14 +70,13 @@ cp .env.example .env
 chmod +x cli/egov
 ./cli/egov
 ```
-*(Perintah `./cli/gov` juga tetap dapat digunakan sebagai alias).*
 
 #### 🪟 Pengguna Windows Native (Command Prompt / PowerShell):
 Cukup jalankan file `egov.bat` di folder `cli`:
 ```cmd
 .\cli\egov.bat
 ```
-*(Atau jalankan `.\cli\gov.bat` / klik dua kali langsung dari File Explorer Windows).*
+*(atau klik dua kali langsung dari File Explorer Windows).*
 
 Pilih opsi di menu:
 - Ketik `1` untuk memilih versi PHP tertentu (misal: hanya PHP 7.4 atau PHP 8.2).
@@ -91,7 +90,7 @@ Buka browser di:
 
 ## 🛠️ Instalasi CLI Helper ke Terminal Host (Opsional)
 
-Agar Anda bisa memanggil perintah `egov` (dan `gov`) langsung dari mana saja tanpa mengetik `./cli/`:
+Agar Anda bisa memanggil perintah `egov` langsung dari mana saja tanpa mengetik `./cli/`:
 
 ### 🐧 Untuk Linux & macOS (serta Windows WSL 2 / Git Bash)
 
@@ -109,7 +108,7 @@ Agar Anda bisa memanggil perintah `egov` (dan `gov`) langsung dari mana saja tan
   source ~/.bashrc
   ```
 
-*Selesai! Script ini otomatis mendaftarkan perintah `egov` & `gov` (launcher), `artisan`, `composer`, `php74` s/d `php83`, dan `fix-perms` ke terminal Anda tanpa perlu membuat symlink manual.*
+*Selesai! Script ini otomatis mendaftarkan perintah `egov` (launcher), `artisan`, `composer`, `php74` s/d `php83`, dan `fix-perms` ke terminal Anda tanpa perlu membuat symlink manual.*
 
 ### 🪟 Untuk Windows Native (PowerShell)
 
@@ -135,9 +134,7 @@ egov-lamp/
 │   └── php83/
 ├── cli/                 # Script pembantu terminal
 │   ├── egov             # Interactive terminal launcher (Bash)
-│   ├── gov              # Backward-compatible wrapper
 │   ├── egov.bat         # Interactive terminal launcher (Windows CMD/PowerShell)
-│   ├── gov.bat          # Backward-compatible wrapper Windows
 │   ├── docker-php-helpers.sh   # Bash/Zsh helpers & smart router
 │   └── docker-php-helpers.ps1  # Windows PowerShell helpers & smart router
 ├── config/              # Konfigurasi Apache, PHP.ini, dan vhosts

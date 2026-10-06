@@ -14,31 +14,24 @@ fi
 _EGOV_ROOT="$(cd "$(dirname "$_EGOV_SCRIPT_SRC")/.." 2>/dev/null && pwd)"
 [ -z "$_EGOV_ROOT" ] && _EGOV_ROOT="$PWD"
 
-# Shortcut Command: egov & gov (Langsung jalankan menu interactive tanpa perlu symlink)
+# Shortcut Command: egov (Langsung jalankan menu interactive)
 egov() {
     if [ -f "$_EGOV_ROOT/cli/egov" ]; then
         bash "$_EGOV_ROOT/cli/egov" "$@"
-    elif [ -f "$_EGOV_ROOT/cli/gov" ]; then
-        bash "$_EGOV_ROOT/cli/gov" "$@"
     else
         echo -e "\033[0;31mError: Script launcher tidak ditemukan di $_EGOV_ROOT/cli/egov\033[0m"
     fi
 }
-gov() { egov "$@"; }
 
 _run_egov_docker() {
     local php_ver="$1"
     shift
     local container="egov-$php_ver"
 
-    # Periksa apakah container aktif (mendukung egov- atau legacy gov-)
+    # Periksa apakah container aktif
     if ! docker ps --format '{{.Names}}' | grep -q "^${container}$"; then
-        if docker ps --format '{{.Names}}' | grep -q "^gov-${php_ver}$"; then
-            container="gov-$php_ver"
-        else
-            echo -e "\033[1;33mContainer $container belum aktif. Menyalakan otomatis...\033[0m"
-            (cd "$_EGOV_ROOT" && docker compose up -d database "$php_ver")
-        fi
+        echo -e "\033[1;33mContainer $container belum aktif. Menyalakan otomatis...\033[0m"
+        (cd "$_EGOV_ROOT" && docker compose up -d database "$php_ver")
     fi
 
     # Tentukan path relatif terhadap direktori www
@@ -110,7 +103,7 @@ artisan83() { _run_egov_docker "php83" php artisan "$@"; }
 
 # Fix permissions untuk Laravel storage, cache, .ws, dan vhosts
 fix-perms() {
-    local container=$(docker ps --format '{{.Names}}' | grep -E '^egov-php|^gov-php' | head -n 1)
+    local container=$(docker ps --format '{{.Names}}' | grep -E '^egov-php' | head -n 1)
     if [ -z "$container" ]; then
         echo -e "\033[0;31mTidak ada container PHP yang aktif.\033[0m"
         return 1

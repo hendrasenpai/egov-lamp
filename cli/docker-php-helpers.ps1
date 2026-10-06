@@ -27,8 +27,6 @@ if ($scriptDir) {
 if (-not $script:EGOV_ROOT -or -not (Test-Path "$script:EGOV_ROOT\docker-compose.yml")) {
     if (Test-Path "C:\egov-lamp\docker-compose.yml") {
         $script:EGOV_ROOT = "C:\egov-lamp"
-    } elseif (Test-Path "C:\gov-lamp\docker-compose.yml") {
-        $script:EGOV_ROOT = "C:\gov-lamp"
     } elseif (Test-Path "$PWD\docker-compose.yml") {
         $script:EGOV_ROOT = "$PWD"
     } elseif (Test-Path "$PWD\..\docker-compose.yml") {
@@ -36,15 +34,10 @@ if (-not $script:EGOV_ROOT -or -not (Test-Path "$script:EGOV_ROOT\docker-compose
     }
 }
 
-# Shortcut command: egov & gov (membuka interactive menu)
+# Shortcut command: egov (membuka interactive menu)
 function egov {
-    if (Test-Path "$script:EGOV_ROOT\cli\egov.bat") {
-        & "$script:EGOV_ROOT\cli\egov.bat" @args
-    } else {
-        & "$script:EGOV_ROOT\cli\gov.bat" @args
-    }
+    & "$script:EGOV_ROOT\cli\egov.bat" @args
 }
-function gov { egov @args }
 
 function Invoke-EgovDocker {
     param(
@@ -54,16 +47,8 @@ function Invoke-EgovDocker {
 
     $container = "egov-$PhpVer"
 
-    # Cek apakah container sedang running (mendukung egov- atau legacy gov-)
+    # Cek apakah container sedang running
     $isRunning = docker ps --format '{{.Names}}' | Where-Object { $_ -eq $container }
-    if (-not $isRunning) {
-        $legacy = "gov-$PhpVer"
-        $isLegacyRunning = docker ps --format '{{.Names}}' | Where-Object { $_ -eq $legacy }
-        if ($isLegacyRunning) {
-            $container = $legacy
-            $isRunning = $true
-        }
-    }
 
     if (-not $isRunning) {
         Write-Host "Container $container belum aktif. Menyalakan otomatis..." -ForegroundColor Yellow
@@ -155,4 +140,4 @@ function artisan82 { Invoke-EgovDocker "php82" "php" "artisan" @args }
 function artisan83 { Invoke-EgovDocker "php83" "php" "artisan" @args }
 
 Write-Host "EGOV-LAMP PowerShell Helpers loaded!" -ForegroundColor Green
-Write-Host "Commands available: egov, gov, php74..83, composer74..83, artisan74..83, composer, artisan" -ForegroundColor Cyan
+Write-Host "Commands available: egov, php74..83, composer74..83, artisan74..83, composer, artisan" -ForegroundColor Cyan

@@ -4,7 +4,7 @@ $user = 'root';
 $pass = 'tiger';
 $db   = 'docker';
 
-echo "<h2>Testing MariaDB Connection (gov-lamp)</h2>";
+echo "<h2>Testing MariaDB Connection (egov-lamp)</h2>";
 
 $conn = @new mysqli($host, $user, $pass, $db);
 

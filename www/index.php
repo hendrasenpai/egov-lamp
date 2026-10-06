@@ -478,12 +478,12 @@ foreach ($all_items as $item) {
             });
         }
         function openInVSCode(projectName) {
-            let hostPath = localStorage.getItem('gov_host_path');
+            let hostPath = localStorage.getItem('egov_host_path') || localStorage.getItem('gov_host_path');
             if (!hostPath) {
-                hostPath = prompt("Untuk integrasi VS Code, masukkan path absolut folder 'www' di laptop Anda:\n(Contoh: /home/username/gov-lamp/www)", "");
+                hostPath = prompt("Untuk integrasi VS Code, masukkan path absolut folder 'www' di laptop Anda:\n(Contoh: /home/username/workspace/egov/www)", "");
                 if (hostPath) {
                     hostPath = hostPath.trim().replace(/\/+$/, '');
-                    localStorage.setItem('gov_host_path', hostPath);
+                    localStorage.setItem('egov_host_path', hostPath);
                 } else {
                     return;
                 }

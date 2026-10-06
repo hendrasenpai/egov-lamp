@@ -20,8 +20,6 @@ elif [ -f "./docker-compose.yml" ]; then
     ROOT_DIR="$(pwd)"
 elif [ -d "/home/hendra/workspace/egov" ]; then
     ROOT_DIR="/home/hendra/workspace/egov"
-else
-    ROOT_DIR="/home/hendra/workspace/gov"
 fi
 
 cd "$ROOT_DIR" || { echo -e "${RED}Direktori egov-lamp tidak ditemukan!${NC}"; exit 1; }
@@ -102,12 +100,12 @@ case $ACTION_CHOICE in
     5)
         echo ""
         echo -e "${CYAN}--- Status Container egov-lamp ---${NC}"
-        docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "egov-|gov-|CONTAINER ID"
+        docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "egov-|CONTAINER ID"
         ;;
     6)
         echo ""
         echo -e "${YELLOW}Memperbaiki file permissions...${NC}"
-        CONTAINER=$(docker ps --format '{{.Names}}' | grep -E '^egov-php|^gov-php' | head -n 1)
+        CONTAINER=$(docker ps --format '{{.Names}}' | grep -E '^egov-php' | head -n 1)
         if [ -z "$CONTAINER" ]; then
             echo -e "${RED}Error: Container PHP harus dalam keadaan aktif untuk menjalankan fix-perms.${NC}"
             exit 1
