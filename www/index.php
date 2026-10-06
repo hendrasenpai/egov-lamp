@@ -679,18 +679,44 @@ foreach ($all_items as $item) {
 
                     <hr class="border-secondary my-3">
 
-                    <h6 class="text-uppercase text-secondary fw-bold small mb-2">Path Folder Host / WSL</h6>
-                    <p class="small text-secondary mb-2">Path absolut folder <code>www</code> di komputer host Anda untuk integrasi tombol IDE:</p>
-                    <div class="input-group input-group-sm">
-                        <input type="text" class="form-control bg-dark text-light border-secondary font-monospace" id="prefHostPath" placeholder="/home/username/workspace/egov/www">
-                        <button class="btn btn-outline-info" type="button" onclick="saveHostPathPref()">Simpan</button>
+                    <h6 class="text-uppercase text-secondary fw-bold small mb-2">Integrasi Path Windows & WSL</h6>
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-bold">PATH FOLDER WWW</label>
+                        <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary font-monospace" id="prefHostPath" placeholder="/home/username/workspace/egov/www">
+                        <div class="form-text text-secondary small">
+                            Jika project di WSL, masukkan path Linux WSL (contoh: <code>/home/hendra/workspace/egov/www</code>).
+                        </div>
                     </div>
-                    <div class="form-text text-secondary small mt-1">
-                        Contoh: <code>/home/hendra/workspace/egov/www</code>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label text-secondary small fw-bold">DISTRO WSL</label>
+                            <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary font-monospace" id="prefWslDistro" placeholder="Ubuntu" value="Ubuntu">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label text-secondary small fw-bold">MODE INTEGRASI WSL</label>
+                            <select class="form-select form-select-sm bg-dark text-light border-secondary" id="prefWslMode">
+                                <option value="remote">Remote WSL (Rekomendasi)</option>
+                                <option value="unc">Network Share (UNC)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label text-secondary small fw-bold">PROTOKOL ANTIGRAVITY</label>
+                        <select class="form-select form-select-sm bg-dark text-light border-secondary" id="prefAntigravityProtocol">
+                            <option value="antigravity-ide">antigravity-ide:// (Antigravity IDE Code Editor - Default)</option>
+                            <option value="antigravity">antigravity:// (Antigravity 2.0 Desktop Chat Canvas)</option>
+                        </select>
+                        <div class="form-text text-secondary small">
+                            Gunakan <code>antigravity-ide://</code> agar membuka editor koding, bukan aplikasi chat bawaan.
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer border-secondary">
-                    <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">Selesai</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Tutup</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="saveAllPreferences()">Simpan Pengaturan</button>
                 </div>
             </div>
         </div>
@@ -954,6 +980,18 @@ foreach ($all_items as $item) {
             const hostPath = localStorage.getItem('egov_host_path') || localStorage.getItem('gov_host_path') || '';
             const inputHostPath = document.getElementById('prefHostPath');
             if (inputHostPath) inputHostPath.value = hostPath;
+
+            const wslDistro = localStorage.getItem('egov_wsl_distro') || 'Ubuntu';
+            const inputDistro = document.getElementById('prefWslDistro');
+            if (inputDistro) inputDistro.value = wslDistro;
+
+            const wslMode = localStorage.getItem('egov_wsl_mode') || 'remote';
+            const selectMode = document.getElementById('prefWslMode');
+            if (selectMode) selectMode.value = wslMode;
+
+            const agyProto = localStorage.getItem('egov_antigravity_protocol') || 'antigravity-ide';
+            const selectProto = document.getElementById('prefAntigravityProtocol');
+            if (selectProto) selectProto.value = agyProto;
         }
 
         function updateIdePreferences() {
@@ -975,53 +1013,107 @@ foreach ($all_items as $item) {
             preferencesModalInstance.show();
         }
 
-        function saveHostPathPref() {
-            const input = document.getElementById('prefHostPath');
-            if (input) {
-                const val = input.value.trim().replace(/\/+$/, '');
+        function saveAllPreferences() {
+            const inputPath = document.getElementById('prefHostPath');
+            if (inputPath) {
+                const val = inputPath.value.trim().replace(/\\/g, '/').replace(/\/+$/, '');
                 if (val) {
                     localStorage.setItem('egov_host_path', val);
-                    showToast(`<i class="bi bi-check-circle-fill text-success me-2"></i>Host path disimpan: <code>${val}</code>`);
                 } else {
                     localStorage.removeItem('egov_host_path');
-                    showToast('<i class="bi bi-info-circle text-info me-2"></i>Host path direset.');
                 }
             }
+
+            const inputDistro = document.getElementById('prefWslDistro');
+            if (inputDistro) {
+                localStorage.setItem('egov_wsl_distro', inputDistro.value.trim() || 'Ubuntu');
+            }
+
+            const selectMode = document.getElementById('prefWslMode');
+            if (selectMode) {
+                localStorage.setItem('egov_wsl_mode', selectMode.value);
+            }
+
+            const selectProto = document.getElementById('prefAntigravityProtocol');
+            if (selectProto) {
+                localStorage.setItem('egov_antigravity_protocol', selectProto.value);
+            }
+
+            if (preferencesModalInstance) {
+                preferencesModalInstance.hide();
+            }
+            showToast('<i class="bi bi-check-circle-fill text-success me-2"></i>Pengaturan preferensi dashboard berhasil disimpan!');
+        }
+
+        // Build Universal Editor URI (Smart Windows WSL / Linux / Mac Translation)
+        function buildEditorUri(scheme, projectName) {
+            let hostPath = (localStorage.getItem('egov_host_path') || localStorage.getItem('gov_host_path') || '').trim();
+            const distro = (localStorage.getItem('egov_wsl_distro') || 'Ubuntu').trim();
+            const isWindows = navigator.userAgent.includes('Windows');
+
+            if (!hostPath) {
+                const msg = isWindows 
+                    ? "Masukkan path folder 'www' di WSL Anda:\n(Contoh: /home/hendra/workspace/egov/www)\n\nJika menggunakan Windows biasa, masukkan drive path (Contoh: D:/egov/www)"
+                    : "Masukkan path absolut folder 'www':\n(Contoh: /home/hendra/workspace/egov/www)";
+                
+                hostPath = prompt(msg, "/home/hendra/workspace/egov/www");
+                if (hostPath) {
+                    hostPath = hostPath.trim().replace(/\/+$/, '');
+                    localStorage.setItem('egov_host_path', hostPath);
+                } else {
+                    return null;
+                }
+            }
+
+            // Normalisasi backslash ke forward slash
+            hostPath = hostPath.replace(/\\/g, '/').replace(/\/+$/, '');
+
+            // KASUS 1: Path Windows UNC (//wsl.localhost/ atau //wsl$/)
+            if (hostPath.startsWith('//wsl.localhost/') || hostPath.startsWith('//wsl$/')) {
+                return `${scheme}://file${hostPath}/${projectName}`;
+            }
+
+            // KASUS 2: Path Linux WSL (diawali /home, /var, dll) diakses dari browser Windows
+            if (isWindows && hostPath.startsWith('/')) {
+                const wslMode = localStorage.getItem('egov_wsl_mode') || 'remote';
+                if (wslMode === 'unc') {
+                    // Windows UNC Network Path (\\wsl.localhost\Ubuntu\...)
+                    return `${scheme}://file//wsl.localhost/${distro}${hostPath}/${projectName}`;
+                }
+                // Default: Format Resmi Remote WSL (vscode-remote://...)
+                return `${scheme}://vscode-remote/wsl+${distro}${hostPath}/${projectName}`;
+            }
+
+            // KASUS 3: Path Drive Windows (C:/... atau D:/...)
+            if (/^[a-zA-Z]:/.test(hostPath)) {
+                return `${scheme}://file/${hostPath}/${projectName}`;
+            }
+
+            // KASUS 4: Path Linux di Linux Native
+            return `${scheme}://file${hostPath}/${projectName}`;
         }
 
         // Open in VS Code
         function openInVSCode(projectName) {
-            let hostPath = localStorage.getItem('egov_host_path') || localStorage.getItem('gov_host_path');
-            if (!hostPath) {
-                hostPath = prompt("Untuk integrasi VS Code / Antigravity, masukkan path absolut folder 'www' di laptop Anda:\n(Contoh WSL: /home/hendra/workspace/egov/www)", "");
-                if (hostPath) {
-                    hostPath = hostPath.trim().replace(/\/+$/, '');
-                    localStorage.setItem('egov_host_path', hostPath);
-                } else {
-                    return;
-                }
+            const uri = buildEditorUri('vscode', projectName);
+            if (!uri) return;
+
+            window.location.href = uri;
+            const cliCmd = `code www/${projectName}`;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(cliCmd).catch(() => {});
             }
-            window.location.href = `vscode://file${hostPath}/${projectName}`;
-            showToast(`<i class="bi bi-code-slash text-info me-2"></i>Membuka <strong>${projectName}</strong> di VS Code...`);
+            showToast(`<i class="bi bi-code-slash text-info me-2"></i>Membuka <strong>${projectName}</strong> di VS Code...<br><span class="text-secondary small font-monospace">CLI: ${cliCmd} (disalin)</span>`);
         }
 
         // Open in Antigravity IDE
         function openInAntigravity(projectName) {
-            let hostPath = localStorage.getItem('egov_host_path') || localStorage.getItem('gov_host_path');
-            if (!hostPath) {
-                hostPath = prompt("Untuk integrasi Antigravity IDE / VS Code, masukkan path absolut folder 'www' di laptop Anda:\n(Contoh WSL: /home/hendra/workspace/egov/www)", "");
-                if (hostPath) {
-                    hostPath = hostPath.trim().replace(/\/+$/, '');
-                    localStorage.setItem('egov_host_path', hostPath);
-                } else {
-                    return;
-                }
-            }
-            // Trigger Antigravity URL Scheme
-            window.location.href = `antigravity://file${hostPath}/${projectName}`;
+            const scheme = localStorage.getItem('egov_antigravity_protocol') || 'antigravity-ide';
+            const uri = buildEditorUri(scheme, projectName);
+            if (!uri) return;
 
-            // Auto copy terminal command for instant fallback
-            const cliCmd = `antigravity www/${projectName}`;
+            window.location.href = uri;
+            const cliCmd = `antigravity-ide www/${projectName}`;
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(cliCmd).catch(() => {});
             }

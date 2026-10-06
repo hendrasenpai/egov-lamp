@@ -210,19 +210,14 @@ if grep -qiE "microsoft|wsl" /proc/version 2>/dev/null; then
             "/mnt/c/Program Files/Google/Antigravity IDE/Antigravity IDE.exe"
             "/mnt/c/Program Files/Antigravity IDE/bin/antigravity-ide"*
             "/mnt/c/Program Files/Antigravity IDE/Antigravity IDE.exe"
-            "/mnt/c/Program Files/Google/Antigravity/bin/antigravity"*
-            "/mnt/c/Program Files/Antigravity/bin/antigravity"*
-            "/mnt/c/Program Files/Antigravity/Antigravity.exe"
             # Program Files (x86)
             "/mnt/c/Program Files (x86)/Google/Antigravity IDE/bin/antigravity-ide"*
             "/mnt/c/Program Files (x86)/Google/Antigravity IDE/Antigravity IDE.exe"
             "/mnt/c/Program Files (x86)/Antigravity IDE/bin/antigravity-ide"*
             "/mnt/c/Program Files (x86)/Antigravity IDE/Antigravity IDE.exe"
-            "/mnt/c/Program Files (x86)/Antigravity/bin/antigravity"*
             # User AppData - Antigravity IDE
             /mnt/c/Users/*/AppData/Local/Programs/"Antigravity IDE"/bin/antigravity-ide*
             /mnt/c/Users/*/AppData/Local/Programs/"Antigravity IDE"/"Antigravity IDE.exe"
-            /mnt/c/Users/*/AppData/Local/Programs/"Antigravity"/bin/antigravity*
             /mnt/c/Users/*/AppData/Local/Programs/Google/"Antigravity IDE"/"Antigravity IDE.exe"
         )
 
@@ -237,23 +232,10 @@ if grep -qiE "microsoft|wsl" /proc/version 2>/dev/null; then
             fi
         done
 
-        # 3. Fallback: jika Antigravity IDE belum ada, cek apakah hanya ada Antigravity 2.0 (Desktop Agent App)
-        for u in /mnt/c/Users/*; do
-            if [ -f "$u/AppData/Local/Programs/Antigravity/Antigravity.exe" ]; then
-                echo -e "\033[1;33m[Perhatian]\033[0m Antigravity IDE (Editor Kode) tidak ditemukan, membuka Antigravity 2.0 (Desktop App)."
-                echo -e "Untuk membuka editor koding (seperti VS Code), pastikan telah menginstall \033[1;32mAntigravity IDE\033[0m di Windows."
-                "$u/AppData/Local/Programs/Antigravity/Antigravity.exe" "$win_path" 2>/dev/null &
-                return
-            fi
-        done
-
-        # 4. Fallback cmd.exe start
-        cmd.exe /c start "" "antigravity-ide" "$win_path" 2>/dev/null || \
-        cmd.exe /c start "" "antigravity" "$win_path" 2>/dev/null || {
-            echo -e "\033[0;31mAntigravity IDE tidak ditemukan di Windows.\033[0m"
-            echo -e "Pastikan Anda telah menginstall \033[1;36mAntigravity IDE\033[0m di Windows."
-            echo -e "Buka Antigravity IDE, tekan \033[1;33mCtrl+Shift+P\033[0m, lalu pilih:"
-            echo -e "\033[1;33mShell Command: Install 'antigravity-ide' command in PATH\033[0m"
+        # 3. Fallback cmd.exe start khusus antigravity-ide
+        cmd.exe /c start "" "antigravity-ide" "$win_path" 2>/dev/null || {
+            echo -e "\033[0;31mAntigravity IDE (Editor Kode) tidak ditemukan di Windows.\033[0m"
+            echo -e "Pastikan Anda telah menginstall \033[1;36mAntigravity IDE\033[0m di Windows dan perintah \033[1;33mantigravity-ide\033[0m terdaftar di PATH."
         }
     }
 
