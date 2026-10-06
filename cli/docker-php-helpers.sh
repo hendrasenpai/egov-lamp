@@ -125,21 +125,37 @@ artisan83() { _run_egov_docker "php83" php artisan "$@"; }
 
 # Fix permissions untuk Laravel storage, cache, .ws, dan vhosts
 fix-perms() {
-    local container=$(docker ps --format '{{.Names}}' | grep -E '^egov-php' | head -n 1)
-    if [ -z "$container" ]; then
-        echo -e "\033[0;31mTidak ada container PHP yang aktif.\033[0m"
-        return 1
-    fi
-    echo -e "\033[1;33mMemperbaiki permission storage, cache, .ws, dan vhosts...\033[0m"
-    docker exec "$container" bash -c '
-        chmod -R 777 /etc/apache2/sites-enabled 2>/dev/null
-        for d in /var/www/html/*/ ; do
-            [ -f "$d/.ws" ] && chmod 666 "$d/.ws" 2>/dev/null
-            if [ -d "$d/storage" ] || [ -d "$d/bootstrap/cache" ]; then
-                chmod -R 777 "$d/storage" "$d/bootstrap/cache" 2>/dev/null
-                echo "✔ Fixed: $(basename "$d")"
+    echo -e "\033[1;33mMemperbaiki permission storage, cache, .ws, dan folder project...\033[0m"
+    # 1. Perbaiki di host lokal jika direktori www ada
+    if [ -d "$_EGOV_ROOT/www" ]; then
+        chmod 777 "$_EGOV_ROOT/www" 2>/dev/null
+        for p in "$_EGOV_ROOT/www"/*; do
+            if [ -d "$p" ]; then
+                chmod 777 "$p" 2>/dev/null
+                touch "$p/.ws" 2>/dev/null
+                chmod 666 "$p/.ws" 2>/dev/null
+                [ -d "$p/storage" ] && chmod -R 777 "$p/storage" 2>/dev/null
+                [ -d "$p/bootstrap/cache" ] && chmod -R 777 "$p/bootstrap/cache" 2>/dev/null
             fi
         done
-    '
+    fi
+
+    # 2. Perbaiki di dalam container
+    local container=$(docker ps --format '{{.Names}}' | grep -E '^egov-php' | head -n 1)
+    if [ -n "$container" ]; then
+        docker exec "$container" bash -c '
+            chmod -R 777 /etc/apache2/sites-enabled 2>/dev/null
+            chmod 777 /var/www/html 2>/dev/null
+            for d in /var/www/html/*/ ; do
+                chmod 777 "$d" 2>/dev/null
+                touch "$d/.ws" 2>/dev/null
+                chmod 666 "$d/.ws" 2>/dev/null
+                if [ -d "$d/storage" ] || [ -d "$d/bootstrap/cache" ]; then
+                    chmod -R 777 "$d/storage" "$d/bootstrap/cache" 2>/dev/null
+                fi
+                echo "✔ Fixed: $(basename "$d")"
+            done
+        '
+    fi
     echo -e "\033[0;32mSelesai! Semua permission sudah aman.\033[0m"
 }
