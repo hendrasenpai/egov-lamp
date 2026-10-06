@@ -109,6 +109,14 @@ function Get-EgovTargetPhp {
 
 # Smart CLI Auto-Routing berdasarkan .ws file di project
 function php {
+    $current = (Get-Location).Path
+    if ($current -notmatch '[\\/]www' -and $current -notmatch '[\\/]workspace') {
+        $hostPhp = (Get-Command php.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+        if ($hostPhp) {
+            & $hostPhp @args
+            return
+        }
+    }
     $target = Get-EgovTargetPhp
     Invoke-EgovDocker $target "php" @args
 }
@@ -119,6 +127,14 @@ function artisan {
 }
 
 function composer {
+    $current = (Get-Location).Path
+    if ($current -notmatch '[\\/]www' -and $current -notmatch '[\\/]workspace') {
+        $hostComp = (Get-Command composer.bat, composer.phar -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+        if ($hostComp) {
+            & $hostComp @args
+            return
+        }
+    }
     $target = Get-EgovTargetPhp
     Invoke-EgovDocker $target "composer" @args
 }

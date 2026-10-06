@@ -71,6 +71,14 @@ _get_egov_target_php() {
 
 # Smart CLI Auto-Routing
 php() {
+    # Jika berada di luar workspace dan ada binary PHP asli di host laptop, gunakan host
+    if [[ "$PWD" != "$_EGOV_ROOT"* && "$PWD" != *"/workspace/"* ]]; then
+        local host_php=$(type -P php 2>/dev/null)
+        if [ -n "$host_php" ] && [ -x "$host_php" ]; then
+            "$host_php" "$@"
+            return $?
+        fi
+    fi
     local target=$(_get_egov_target_php)
     _run_egov_docker "$target" php "$@"
 }
@@ -81,6 +89,14 @@ artisan() {
 }
 
 composer() {
+    # Jika berada di luar workspace dan ada binary Composer asli di host laptop, gunakan host
+    if [[ "$PWD" != "$_EGOV_ROOT"* && "$PWD" != *"/workspace/"* ]]; then
+        local host_composer=$(type -P composer 2>/dev/null)
+        if [ -n "$host_composer" ] && [ -x "$host_composer" ]; then
+            "$host_composer" "$@"
+            return $?
+        fi
+    fi
     local target=$(_get_egov_target_php)
     _run_egov_docker "$target" composer "$@"
 }
