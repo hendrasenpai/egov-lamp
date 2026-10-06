@@ -184,15 +184,27 @@ if grep -qiE "microsoft|wsl" /proc/version 2>/dev/null; then
             fi
         done
 
-        # 2. Cari instalasi spesifik Antigravity IDE (Editor koding berbasis VS Code) di Windows
+        # 2. Cari instalasi spesifik Antigravity IDE di Program Files & AppData Windows
         local ide_candidates=(
+            # Program Files (64-bit)
+            "/mnt/c/Program Files/Google/Antigravity IDE/bin/antigravity-ide"*
+            "/mnt/c/Program Files/Google/Antigravity IDE/Antigravity IDE.exe"
+            "/mnt/c/Program Files/Antigravity IDE/bin/antigravity-ide"*
+            "/mnt/c/Program Files/Antigravity IDE/Antigravity IDE.exe"
+            "/mnt/c/Program Files/Google/Antigravity/bin/antigravity"*
+            "/mnt/c/Program Files/Antigravity/bin/antigravity"*
+            "/mnt/c/Program Files/Antigravity/Antigravity.exe"
+            # Program Files (x86)
+            "/mnt/c/Program Files (x86)/Google/Antigravity IDE/bin/antigravity-ide"*
+            "/mnt/c/Program Files (x86)/Google/Antigravity IDE/Antigravity IDE.exe"
+            "/mnt/c/Program Files (x86)/Antigravity IDE/bin/antigravity-ide"*
+            "/mnt/c/Program Files (x86)/Antigravity IDE/Antigravity IDE.exe"
+            "/mnt/c/Program Files (x86)/Antigravity/bin/antigravity"*
+            # User AppData - Antigravity IDE
             /mnt/c/Users/*/AppData/Local/Programs/"Antigravity IDE"/bin/antigravity-ide*
             /mnt/c/Users/*/AppData/Local/Programs/"Antigravity IDE"/"Antigravity IDE.exe"
             /mnt/c/Users/*/AppData/Local/Programs/"Antigravity"/bin/antigravity*
             /mnt/c/Users/*/AppData/Local/Programs/Google/"Antigravity IDE"/"Antigravity IDE.exe"
-            "/mnt/c/Program Files/Google/Antigravity IDE/Antigravity IDE.exe"
-            "/mnt/c/Program Files/Antigravity IDE/Antigravity IDE.exe"
-            "/mnt/c/Program Files/Google/Antigravity IDE/bin/antigravity-ide"*
         )
 
         for exe in "${ide_candidates[@]}"; do
