@@ -140,19 +140,20 @@ EOL
 chmod 666 "$WS_FILE" 2>/dev/null
 
 # 8. Setup .env & Database MariaDB
+DB_SAFE_NAME=$(echo "$PROJECT_NAME" | sed 's/[^a-zA-Z0-9_]/_/g')
+
 if [ -f "$TARGET_DIR/.env.example" ] && [ ! -f "$TARGET_DIR/.env" ]; then
     cp "$TARGET_DIR/.env.example" "$TARGET_DIR/.env"
     sed -i 's/^DB_HOST=.*/DB_HOST=database/' "$TARGET_DIR/.env"
     sed -i 's/^DB_PORT=.*/DB_PORT=3306/' "$TARGET_DIR/.env"
     sed -i 's/^DB_USERNAME=.*/DB_USERNAME=root/' "$TARGET_DIR/.env"
     sed -i 's/^DB_PASSWORD=.*/DB_PASSWORD=tiger/' "$TARGET_DIR/.env"
-    sed -i "s/^DB_DATABASE=.*/DB_DATABASE=$PROJECT_NAME/" "$TARGET_DIR/.env"
+    sed -i "s/^DB_DATABASE=.*/DB_DATABASE=$DB_SAFE_NAME/" "$TARGET_DIR/.env"
     sed -i "s/^APP_NAME=.*/APP_NAME=$PROJECT_NAME/" "$TARGET_DIR/.env"
     sed -i 's/^REDIS_HOST=.*/REDIS_HOST=redis/' "$TARGET_DIR/.env"
-    echo -e "${GREEN}✔ File .env dikonfigurasi untuk MariaDB Docker.${NC}"
+    echo -e "${GREEN}✔ File .env dikonfigurasi untuk MariaDB Docker (DB: $DB_SAFE_NAME).${NC}"
 fi
 
-DB_SAFE_NAME=$(echo "$PROJECT_NAME" | sed 's/[^a-zA-Z0-9_]/_/g')
 echo -e "${YELLOW}Membuat database MariaDB '$DB_SAFE_NAME'...${NC}"
 (cd "$ROOT_DIR" && docker compose exec -T database mysql -u root -ptiger -e "CREATE DATABASE IF NOT EXISTS \`$DB_SAFE_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || true)
 

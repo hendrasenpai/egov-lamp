@@ -135,6 +135,8 @@ chmod 666 "$TARGET_DIR/.ws" 2>/dev/null
 echo -e "${GREEN}✔ Versi PHP project diset ke PHP $PHP_VER (file .ws dibuat).${NC}"
 
 # 4. Setup Lingkungan Laravel / File .env & Database
+DB_SAFE_NAME=$(echo "$REPO_NAME" | sed 's/[^a-zA-Z0-9_]/_/g')
+
 if [ -f "$TARGET_DIR/.env.example" ] && [ ! -f "$TARGET_DIR/.env" ]; then
     echo ""
     read -p "Ditemukan .env.example. Buat file .env dengan konfigurasi database Docker? [Y/n]: " ENV_CONFIRM
@@ -145,12 +147,11 @@ if [ -f "$TARGET_DIR/.env.example" ] && [ ! -f "$TARGET_DIR/.env" ]; then
         sed -i 's/^DB_PORT=.*/DB_PORT=3306/' "$TARGET_DIR/.env"
         sed -i 's/^DB_USERNAME=.*/DB_USERNAME=root/' "$TARGET_DIR/.env"
         sed -i 's/^DB_PASSWORD=.*/DB_PASSWORD=tiger/' "$TARGET_DIR/.env"
-        sed -i "s/^DB_DATABASE=.*/DB_DATABASE=$REPO_NAME/" "$TARGET_DIR/.env"
+        sed -i "s/^DB_DATABASE=.*/DB_DATABASE=$DB_SAFE_NAME/" "$TARGET_DIR/.env"
         sed -i 's/^REDIS_HOST=.*/REDIS_HOST=redis/' "$TARGET_DIR/.env"
-        echo -e "${GREEN}✔ File .env dibuat otomatis (DB_HOST=database, user=root, pass=tiger)!${NC}"
+        echo -e "${GREEN}✔ File .env dibuat otomatis (DB_HOST=database, user=root, DB=$DB_SAFE_NAME)!${NC}"
 
         # Buat database MariaDB secara otomatis
-        DB_SAFE_NAME=$(echo "$REPO_NAME" | sed 's/[^a-zA-Z0-9_]/_/g')
         (cd "$ROOT_DIR" && docker compose exec -T database mysql -u root -ptiger -e "CREATE DATABASE IF NOT EXISTS \`$DB_SAFE_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || true)
         echo -e "${GREEN}✔ Database MariaDB '$DB_SAFE_NAME' berhasil dipastikan ada.${NC}"
     fi
@@ -218,5 +219,5 @@ echo -e "Lokasi Host  : ${YELLOW}$TARGET_DIR${NC}"
 echo -e "Versi PHP    : ${CYAN}PHP $PHP_VER${NC}"
 echo -e "Akses Web    : ${CYAN}http://localhost:$PORT/$REPO_NAME${NC}"
 echo -e "phpMyAdmin   : ${CYAN}http://localhost:8888${NC}"
-echo -e "Database     : MariaDB (Host: ${CYAN}database${NC}, DB: ${CYAN}$REPO_NAME${NC}, User: ${CYAN}root${NC}, Pass: ${CYAN}tiger${NC})"
+echo -e "Database     : MariaDB (Host: ${CYAN}database${NC}, DB: ${CYAN}$DB_SAFE_NAME${NC}, User: ${CYAN}root${NC}, Pass: ${CYAN}tiger${NC})"
 echo ""

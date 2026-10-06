@@ -120,7 +120,7 @@ if [ "$DROP_DB_CHOICE" == "y" ] || [ "$DROP_DB_CHOICE" == "yes" ]; then
     echo -e "• Menghapus database MariaDB '${CYAN}$SAFE_DB${NC}'..."
     DB_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E 'egov-database' | head -n 1)
     if [ -n "$DB_CONTAINER" ]; then
-        docker exec "$DB_CONTAINER" mysql -uroot -ptiger -e "DROP DATABASE IF EXISTS \`$SAFE_DB\`;" 2>/dev/null
+        docker exec "$DB_CONTAINER" mysql -uroot -ptiger -e "DROP DATABASE IF EXISTS \`$SAFE_DB\`; DROP DATABASE IF EXISTS \`${SAFE_DB}_database\`;" 2>/dev/null
         echo -e "${GREEN}✔ Database '$SAFE_DB' berhasil dihapus.${NC}"
     else
         echo -e "${YELLOW}⚠ Container database sedang tidak aktif, melewati drop database.${NC}"

@@ -185,6 +185,51 @@ if (isset($_GET['action']) && $_GET['action'] === 'ensure_workspace') {
     exit;
 }
 
+// 2b. Handle API Check Project Name & Collision Detection
+if (isset($_GET['action']) && $_GET['action'] === 'check_project_name') {
+    if (ob_get_level()) ob_clean();
+    header('Content-Type: application/json');
+
+    $raw_name = trim($_GET['name'] ?? '');
+    $name = preg_replace('/[^a-zA-Z0-9_\-]/', '', $raw_name);
+
+    if (!$name) {
+        echo json_encode([
+            'success' => false,
+            'valid' => false,
+            'message' => 'Nama project tidak valid.'
+        ]);
+        exit;
+    }
+
+    $db_name = preg_replace('/[^a-zA-Z0-9_]/', '_', $name);
+    $folder_exists = is_dir("./$name");
+
+    // Cek apakah database sudah ada di MariaDB
+    $db_exists = false;
+    try {
+        $pdo = new PDO("mysql:host=database;port=3306", "root", "tiger", [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_TIMEOUT => 2
+        ]);
+        $stmt = $pdo->prepare("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = :db");
+        $stmt->execute(['db' => $db_name]);
+        $db_exists = (bool)$stmt->fetchColumn();
+    } catch (\Exception $e) {
+        $db_exists = false;
+    }
+
+    echo json_encode([
+        'success' => true,
+        'valid' => true,
+        'name' => $name,
+        'db_name' => $db_name,
+        'folder_exists' => $folder_exists,
+        'db_exists' => $db_exists
+    ]);
+    exit;
+}
+
 // 3. Handle API Inisialisasi Project Baru dari Template core-laravel
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'init_project') {
     if (ob_get_level()) ob_clean();
@@ -316,6 +361,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 PDO::ATTR_TIMEOUT => 3
             ]);
             $pdo->exec("DROP DATABASE IF EXISTS `{$safe_db}`");
+            @$pdo->exec("DROP DATABASE IF EXISTS `{$safe_db}_database`");
             $db_dropped = true;
         } catch (\Exception $e) {
             $db_err = $e->getMessage();
@@ -1610,6 +1656,7 @@ foreach ($projects as $p) {
                             <label class="form-label text-secondary small fw-bold">NAMA PROJECT (NAMA FOLDER LOKAL)</label>
                             <input type="text" class="form-control bg-dark text-light border-secondary font-monospace" id="initProjectName" placeholder="contoh: e-surat, simpeg, srikandi">
                             <div class="form-text text-secondary" style="font-size: 0.72rem;">Hanya huruf, angka, strip (-), dan garis bawah (_). Folder: <code>www/&lt;nama&gt;</code></div>
+                            <div id="initProjectNameFeedback" class="mt-2 small d-none"></div>
                         </div>
                         <div class="col-md-5">
                             <label class="form-label text-secondary small fw-bold">VERSI PHP</label>
@@ -1658,6 +1705,7 @@ foreach ($projects as $p) {
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" role="switch" id="initOptMigrateSeed" checked>
                                     <label class="form-check-label" for="initOptMigrateSeed">Migrasi Database (<code>migrate:fresh --seed</code>)</label>
+                                    <div id="initMigrateSeedNotice" class="text-warning small d-none mt-1 font-monospace" style="font-size: 0.72rem;"></div>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -1693,9 +1741,18 @@ foreach ($projects as $p) {
                 <div class="modal-body">
                     <input type="hidden" id="cloneRepoName">
                     <input type="hidden" id="cloneRepoUrl">
-                    <p class="text-secondary small mb-3">
-                        Project akan di-clone langsung ke folder <code>www/<span id="cloneTargetFolder"></span></code> dan disiapkan otomatis.
-                    </p>
+                    <div id="cloneTargetInfo" class="mb-3 p-2 rounded bg-black bg-opacity-40 border border-secondary border-opacity-40 small">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <span class="text-secondary">Lokasi Folder Host:</span>
+                            <code class="text-light">www/<span id="cloneTargetFolder"></span></code>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between">
+                            <span class="text-secondary">Database MariaDB:</span>
+                            <code class="text-info" id="cloneTargetDb">...</code>
+                        </div>
+                    </div>
+                    <div id="cloneCollisionAlert" class="alert alert-danger py-2 px-3 small d-none mb-3"></div>
+                    <div id="cloneDbWarning" class="alert alert-warning py-2 px-3 small d-none mb-3"></div>
                     <div class="mb-3">
                         <label class="form-label text-secondary small fw-bold">PILIH VERSI PHP AWAL</label>
                         <select class="form-select bg-dark text-light border-secondary" id="cloneSelectPhp">
@@ -1733,6 +1790,7 @@ foreach ($projects as $p) {
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" role="switch" id="cloneOptMigrateSeed" checked>
                                     <label class="form-check-label" for="cloneOptMigrateSeed">Migrasi Database (<code>migrate:fresh --seed</code>)</label>
+                                    <div id="cloneMigrateSeedNotice" class="text-warning small d-none mt-1 font-monospace" style="font-size: 0.72rem;"></div>
                                 </div>
                             </div>
                         </div>
@@ -1849,6 +1907,7 @@ foreach ($projects as $p) {
     <script>
         const currentPort = window.location.port || '80';
         document.getElementById('current-port').textContent = currentPort;
+        const localProjectNames = <?= json_encode(array_values(array_column($projects, 'name'))) ?>;
 
         const phpContainers = [
             { id: 'php74', port: '8074' },
@@ -2548,6 +2607,8 @@ foreach ($projects as $p) {
 
         // Init Project (core-laravel template) Modal & Execution
         let initProjectModalInstance = null;
+        let initNameCheckTimer = null;
+
         function openInitProjectModal() {
             document.getElementById('initProjectName').value = '';
             document.getElementById('initProjectRemote').value = '';
@@ -2555,6 +2616,17 @@ foreach ($projects as $p) {
             document.getElementById('initProjectAlert').innerHTML = '';
             document.getElementById('initProjectSteps').className = 'p-2 rounded bg-black bg-opacity-60 border border-secondary border-opacity-50 small font-monospace d-none';
             document.getElementById('initProjectSteps').innerHTML = '';
+
+            const feedbackEl = document.getElementById('initProjectNameFeedback');
+            if (feedbackEl) {
+                feedbackEl.className = 'mt-2 small d-none';
+                feedbackEl.innerHTML = '';
+            }
+            const migrateNotice = document.getElementById('initMigrateSeedNotice');
+            if (migrateNotice) {
+                migrateNotice.className = 'text-warning small d-none mt-1 font-monospace';
+                migrateNotice.innerHTML = '';
+            }
 
             const btnConfirm = document.getElementById('btnConfirmInit');
             const btnCancel = document.getElementById('btnCancelInit');
@@ -2564,8 +2636,84 @@ foreach ($projects as $p) {
 
             if (!initProjectModalInstance) {
                 initProjectModalInstance = new bootstrap.Modal(document.getElementById('initProjectModal'));
+                setupInitProjectNameChecker();
             }
             initProjectModalInstance.show();
+            setTimeout(() => document.getElementById('initProjectName').focus(), 300);
+        }
+
+        function setupInitProjectNameChecker() {
+            const inputEl = document.getElementById('initProjectName');
+            if (!inputEl) return;
+            inputEl.addEventListener('input', function() {
+                clearTimeout(initNameCheckTimer);
+                const feedbackEl = document.getElementById('initProjectNameFeedback');
+                const migrateNotice = document.getElementById('initMigrateSeedNotice');
+                const btnConfirm = document.getElementById('btnConfirmInit');
+                const val = this.value.trim();
+
+                if (!val) {
+                    if (feedbackEl) {
+                        feedbackEl.className = 'mt-2 small d-none';
+                        feedbackEl.innerHTML = '';
+                    }
+                    if (migrateNotice) migrateNotice.classList.add('d-none');
+                    btnConfirm.disabled = false;
+                    return;
+                }
+
+                const cleanName = val.replace(/[^a-zA-Z0-9_\-]/g, '');
+                if (cleanName !== val) {
+                    this.value = cleanName;
+                }
+
+                const safeDb = cleanName.replace(/[^a-zA-Z0-9_]/g, '_');
+
+                // 1. Client-side local check
+                if (localProjectNames.includes(cleanName)) {
+                    feedbackEl.className = 'mt-2 small alert alert-danger py-1 px-2 mb-0';
+                    feedbackEl.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> Folder <strong>www/${escapeHtml(cleanName)}</strong> sudah ada di lokal! Silakan gunakan nama lain.`;
+                    btnConfirm.disabled = true;
+                    if (migrateNotice) migrateNotice.classList.add('d-none');
+                    return;
+                }
+
+                // 2. Debounced API check for MariaDB existence & backend confirm
+                feedbackEl.className = 'mt-2 small text-secondary py-1 px-2 mb-0 font-monospace';
+                feedbackEl.innerHTML = `<i class="bi bi-hourglass-split me-1"></i> Memeriksa ketersediaan nama...`;
+
+                initNameCheckTimer = setTimeout(() => {
+                    fetch(`?action=check_project_name&name=${encodeURIComponent(cleanName)}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            if (!data.success) return;
+                            if (data.folder_exists) {
+                                feedbackEl.className = 'mt-2 small alert alert-danger py-1 px-2 mb-0';
+                                feedbackEl.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> Folder <strong>www/${escapeHtml(data.name)}</strong> sudah ada di lokal! Silakan gunakan nama lain.`;
+                                btnConfirm.disabled = true;
+                                if (migrateNotice) migrateNotice.classList.add('d-none');
+                            } else if (data.db_exists) {
+                                feedbackEl.className = 'mt-2 small alert alert-warning py-1 px-2 mb-0';
+                                feedbackEl.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> Folder tersedia, namun database MariaDB <strong>${escapeHtml(data.db_name)}</strong> sudah ada!`;
+                                btnConfirm.disabled = false;
+                                if (migrateNotice) {
+                                    migrateNotice.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> Database '${escapeHtml(data.db_name)}' sudah ada! Menjalankan migrasi akan me-reset data yang ada (migrate:fresh).`;
+                                    migrateNotice.classList.remove('d-none');
+                                }
+                            } else {
+                                feedbackEl.className = 'mt-2 small alert alert-success py-1 px-2 mb-0';
+                                feedbackEl.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> Nama folder tersedia • Database MariaDB: <code class="text-info">${escapeHtml(data.db_name)}</code>`;
+                                btnConfirm.disabled = false;
+                                if (migrateNotice) migrateNotice.classList.add('d-none');
+                            }
+                        })
+                        .catch(() => {
+                            feedbackEl.className = 'mt-2 small text-secondary';
+                            feedbackEl.innerHTML = `Database MariaDB: <code>${escapeHtml(safeDb)}</code>`;
+                            btnConfirm.disabled = false;
+                        });
+                }, 220);
+            });
         }
 
         function executeInitProject() {
@@ -2658,6 +2806,18 @@ foreach ($projects as $p) {
             document.getElementById('cloneTargetFolder').textContent = repoName;
             document.getElementById('cloneRepoName').value = repoName;
             document.getElementById('cloneRepoUrl').value = cloneUrl;
+
+            const safeDb = repoName.replace(/[^a-zA-Z0-9_]/g, '_');
+            const targetDbEl = document.getElementById('cloneTargetDb');
+            if (targetDbEl) targetDbEl.textContent = safeDb;
+
+            const collisionAlert = document.getElementById('cloneCollisionAlert');
+            const dbWarning = document.getElementById('cloneDbWarning');
+            const migrateNotice = document.getElementById('cloneMigrateSeedNotice');
+            if (collisionAlert) { collisionAlert.className = 'alert alert-danger py-2 px-3 small d-none mb-3'; collisionAlert.innerHTML = ''; }
+            if (dbWarning) { dbWarning.className = 'alert alert-warning py-2 px-3 small d-none mb-3'; dbWarning.innerHTML = ''; }
+            if (migrateNotice) { migrateNotice.className = 'text-warning small d-none mt-1 font-monospace'; migrateNotice.innerHTML = ''; }
+
             document.getElementById('cloneAlert').className = 'alert d-none small mb-2 py-2';
             document.getElementById('cloneAlert').innerHTML = '';
             document.getElementById('cloneSteps').className = 'p-2 rounded bg-black bg-opacity-60 border border-secondary border-opacity-50 small font-monospace d-none';
@@ -2668,6 +2828,32 @@ foreach ($projects as $p) {
             btnConfirm.disabled = false;
             btnCancel.disabled = false;
             btnConfirm.innerHTML = '<i class="bi bi-cloud-download me-1"></i> Mulai Clone & Deploy';
+
+            // Check if folder collision exists
+            if (localProjectNames.includes(repoName)) {
+                if (collisionAlert) {
+                    collisionAlert.innerHTML = `<i class="bi bi-exclamation-octagon-fill me-1"></i> <strong>Peringatan Tabrakan:</strong> Folder <code>www/${escapeHtml(repoName)}</code> sudah ada di server lokal! Tidak dapat melakukan clone duplikat.`;
+                    collisionAlert.classList.remove('d-none');
+                }
+                btnConfirm.disabled = true;
+            } else {
+                // Check MariaDB status
+                fetch(`?action=check_project_name&name=${encodeURIComponent(repoName)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success && data.db_exists) {
+                            if (dbWarning) {
+                                dbWarning.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> <strong>Perhatian:</strong> Database MariaDB <code>${escapeHtml(data.db_name)}</code> sudah ada! Jika 'Migrasi Database' dicentang, seluruh data di dalamnya akan di-refresh (migrate:fresh).`;
+                                dbWarning.classList.remove('d-none');
+                            }
+                            if (migrateNotice) {
+                                migrateNotice.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> Database '${escapeHtml(data.db_name)}' sudah ada! Centang migrasi akan mereset data lama.`;
+                                migrateNotice.classList.remove('d-none');
+                            }
+                        }
+                    })
+                    .catch(() => {});
+            }
 
             if (!cloneModalInstance) {
                 cloneModalInstance = new bootstrap.Modal(document.getElementById('cloneModal'));
