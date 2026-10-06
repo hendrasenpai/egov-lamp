@@ -20,7 +20,7 @@ Stack ini memungkinkan Anda menjalankan berbagai aplikasi web pemerintah daerah 
 4. [📦 Panduan Instalasi](#-panduan-instalasi)
    - [Pengguna Linux (Ubuntu, Debian, Fedora, Arch)](#-a-instalasi-di-linux)
    - [Pengguna macOS (Apple Silicon & Intel)](#-b-instalasi-di-macos)
-   - [Pengguna Windows (PowerShell & Command Prompt)](#-c-instalasi-di-windows)
+   - [Pengguna Windows (WSL 2 Ubuntu)](#-c-instalasi-di-windows-wsl-2-ubuntu)
 5. [🎮 Menggunakan Interactive Launcher (egov)](#-menggunakan-interactive-launcher-egov)
 6. [⚡ Smart CLI & Perintah Terminal (Auto-Routing)](#-smart-cli--perintah-terminal-auto-routing)
 7. [💡 Contoh Praktis Penggunaan (Real-World Examples)](#-contoh-praktis-penggunaan-real-world-examples)
@@ -38,7 +38,7 @@ Stack ini memungkinkan Anda menjalankan berbagai aplikasi web pemerintah daerah 
 ## 🌟 Fitur Unggulan
 
 - **Multi-PHP Paralel / On-Demand**: Mendukung PHP **7.4, 8.0, 8.1, 8.2, dan 8.3** sekaligus pada port berbeda. Anda dapat menyalakan hanya PHP yang dibutuhkan untuk menghemat RAM laptop.
-- **Interactive Control Center (`egov` / `egov.bat`)**: Antarmuka menu terminal interaktif untuk mengontrol container (start, stop, status, fix permissions) hanya dengan satu ketukan angka.
+- **Interactive Control Center (`egov`)**: Antarmuka menu terminal interaktif untuk mengontrol container (start, stop, status, fix permissions, clone repo) hanya dengan satu ketukan angka.
 - **Smart Web Dashboard**:
   - Live indicator status container (lampu hijau/merah) secara *real-time*.
   - Deteksi otomatis jenis framework project (**Laravel**, **CodeIgniter 3**, **PHP Native**).
@@ -156,53 +156,15 @@ Ketik `egov` di Terminal untuk membuka Control Center!
 
 ---
 
-### 🪟 C. Instalasi di Windows
-*(Windows 10 / 11 Native dengan PowerShell & Command Prompt)*
-
-#### 1. Pasang Docker Desktop for Windows
-- Unduh dan pasang [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/).
-- Pastikan opsi **WSL 2 backend** dicentang saat instalasi.
-- Buka Docker Desktop hingga ikon paus di pojok kanan bawah (taskbar) berstatus hijau/running.
-
-#### 2. Izinkan Eksekusi Script PowerShell
-Buka **PowerShell** (bisa user biasa, tidak harus Admin), lalu ketik:
-```powershell
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-*(Ketik `Y` lalu Enter jika ada konfirmasi).*
-
-#### 3. Clone Repository
-```powershell
-git clone https://github.com/hendrasenpai/egov-lamp.git C:\egov-lamp
-cd C:\egov-lamp
-Copy-Item .env.example .env
-```
-
-#### 4. Pasang CLI Helper ke PowerShell Secara Otomatis
-Jalankan file batch launcher:
-```cmd
-.\cli\egov.bat
-```
-*(Atau Anda bisa langsung klik dua kali file `egov.bat` di folder `cli` melalui File Explorer Windows).*
-
-Di menu yang muncul:
-- Pilih opsi **`[6] Pasang Shortcut CLI ke PowerShell`**.
-- Tekan Enter. Script akan otomatis mendaftarkan fungsi helper ke profil PowerShell Anda (`$PROFILE`).
-- Tutup dan buka kembali jendela PowerShell Anda.
-
-Sekarang perintah `egov`, `artisan`, `composer`, `php74`..`php83`, dan `fix-perms` dapat dipanggil dari folder mana pun di Windows PowerShell!
-
----
-
-### 🐧 D. Instalasi di Windows WSL 2 (Ubuntu)
-*(Sangat Direkomendasikan untuk Kecepatan Maksimal di Windows — 10x Lebih Cepat dari NTFS)*
+### 🪟 C. Instalasi di Windows (WSL 2 Ubuntu)
+*(Standar Resmi Lingkungan Developer Windows — Performa 10x Lebih Cepat dari NTFS)*
 
 #### 1. Persiapan Docker Desktop & Integrasi WSL 2
 1. Di Windows, buka **Docker Desktop**.
-2. Masuk ke menu **Settings** (ikon gear ⚙️) ➔ **General** ➔ Pastikan centang **"Use the WSL 2 based engine"**.
+2. Masuk ke menu **Settings** (ikon gear ⚙️) ➔ **General** ➔ Pastikan opsi **"Use the WSL 2 based engine"** tercentang.
 3. Masuk ke **Settings** ➔ **Resources** ➔ **WSL Integration**:
    - Centang **"Enable integration with my default WSL distro"**.
-   - Di daftar distro di bawahnya, aktifkan toggle pada **Ubuntu** (atau distro yang Anda gunakan).
+   - Di daftar distro di bawahnya, aktifkan toggle pada **Ubuntu** (atau distro WSL yang Anda gunakan).
 4. Klik **Apply & restart**.
 
 #### 2. Clone Repository di dalam Linux Filesystem WSL
@@ -211,7 +173,7 @@ Sekarang perintah `egov`, `artisan`, `composer`, `php74`..`php83`, dan `fix-perm
 
 Buka terminal **Ubuntu (WSL 2)**:
 ```bash
-# Clone via HTTPS (disarankan jika belum setup SSH Key):
+# Clone via HTTPS:
 git clone https://github.com/hendrasenpai/egov-lamp.git ~/egov-lamp
 
 # Atau via SSH (jika sudah ada SSH Key GitHub):
@@ -219,7 +181,7 @@ git clone https://github.com/hendrasenpai/egov-lamp.git ~/egov-lamp
 
 cd ~/egov-lamp
 cp .env.example .env
-chmod +x cli/egov
+chmod +x cli/egov cli/clone-project.sh
 ```
 
 #### 3. Pasang CLI Helper ke Bash Terminal WSL
@@ -228,7 +190,7 @@ echo "source $(pwd)/cli/docker-php-helpers.sh" >> ~/.bashrc
 source ~/.bashrc
 ```
 
-#### 4. Membuka Folder Project dari Windows Explorer
+#### 4. Akses Folder Project dari Windows Explorer
 Jika Anda ingin menyalin file project dari Windows ke folder `www/` di WSL:
 - Di terminal WSL, ketik:
   ```bash
@@ -247,9 +209,10 @@ Ketik `egov` di terminal WSL untuk menyalakan stack, atau langsung buka project 
 
 ## 🎮 Menggunakan Interactive Launcher (egov)
 
-Untuk mengelola seluruh stack tanpa perlu mengingat perintah Docker yang panjang, jalankan:
-- Di Linux/macOS: `egov`
-- Di Windows: `egov` (di PowerShell) atau jalankan `cli\egov.bat`
+Untuk mengelola seluruh stack tanpa perlu mengingat perintah Docker yang panjang, jalankan di terminal mana saja (Linux / macOS / WSL 2):
+```bash
+egov
+```
 
 Tampilan menu utama:
 ```text
@@ -575,10 +538,9 @@ egov-lamp/
 │   ├── php82/                  # PHP 8.2 + Apache (Bookworm)
 │   └── php83/                  # PHP 8.3 + Apache (Bookworm)
 ├── cli/                        # Script kontrol dan helper terminal
-│   ├── egov                    # Interactive Terminal Launcher (Bash - Linux/macOS)
-│   ├── egov.bat                # Interactive Terminal Launcher (Windows CMD/PowerShell)
+│   ├── egov                    # Interactive Terminal Launcher (Linux / macOS / WSL 2)
 │   ├── docker-php-helpers.sh   # Helper & Smart Router (Bash/Zsh)
-│   └── docker-php-helpers.ps1  # Helper & Smart Router (Windows PowerShell)
+│   └── clone-project.sh        # Otomatisasi Clone & Setup Project Diskominfo
 ├── config/                     # Konfigurasi server
 │   ├── php/                    # php.ini kustom untuk upload_max_filesize, memory_limit
 │   ├── phpmyadmin/             # Konfigurasi phpMyAdmin
@@ -622,13 +584,11 @@ Atau pilih menu **`[6] Perbaiki Permission Folder`** di menu launcher `egov`.
 
 ---
 
-### Q3: Di Windows PowerShell muncul error `running scripts is disabled on this system`?
-**Penyebab**: Kebijakan keamanan eksekusi PowerShell bawaan Windows masih dalam mode Restricted.  
-**Solusi**:
-Buka PowerShell dan jalankan perintah:
-```powershell
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
+### Q3: Mengapa di Windows wajib menggunakan WSL 2 dan tidak menggunakan PowerShell biasa?
+**Penjelasan & Keuntungan**:
+1. **Performa 10x Lebih Cepat**: Docker Desktop di WSL 2 berjalan di atas kernel Linux murni dan filesystem virtual ext4. Operasi file I/O (seperti `composer install`, `npm install`, reload halaman web Laravel) berjalan hingga **10x lebih cepat** dibandingkan jika dijalankan di filesystem NTFS Windows native.
+2. **Standarisasi Lingkungan (Identik dengan Production)**: Server produksi Pemkab Bintan menggunakan Linux. Dengan menggunakan WSL 2 di Windows, seluruh alur kerja, permission folder (`chmod`), dan ekstensi PHP yang berjalan di laptop developer dijamin 100% identik dengan server live.
+3. **Bebas Masalah Permission**: Mencegah konflik hak akses file Windows vs Linux yang sering membuat web server error saat membuat file cache/log.
 
 ---
 
