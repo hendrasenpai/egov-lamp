@@ -174,6 +174,13 @@ if [ -f "$TARGET_DIR/artisan" ]; then
     docker exec -it -w "/var/www/html/$PROJECT_NAME" "egov-$PHP_CONTAINER" php artisan key:generate --force
     docker exec -it -w "/var/www/html/$PROJECT_NAME" "egov-$PHP_CONTAINER" php artisan storage:link 2>/dev/null || true
 
+    # Auto-patch upstream migration timestamp conflict in laravel-core-functions
+    CONFLICT_MIG="$TARGET_DIR/vendor/tim-it-diskominfobintan/laravel-core-functions/database/migrations/0001_01_01_000007_create_profile_role_bindings_table.php"
+    FIXED_MIG="$TARGET_DIR/vendor/tim-it-diskominfobintan/laravel-core-functions/database/migrations/2025_06_10_144612_create_profile_role_bindings_table.php"
+    if [ -f "$CONFLICT_MIG" ]; then
+        mv "$CONFLICT_MIG" "$FIXED_MIG" 2>/dev/null || true
+    fi
+
     echo -e "${YELLOW}Menjalankan migrasi & seeder (php artisan migrate:fresh --seed)...${NC}"
     docker exec -it -w "/var/www/html/$PROJECT_NAME" "egov-$PHP_CONTAINER" php artisan migrate:fresh --seed --force
 fi

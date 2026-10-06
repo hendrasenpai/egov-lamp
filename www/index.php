@@ -138,10 +138,33 @@ function run_laravel_auto_setup($dir, $repo, $options, &$steps = []) {
 
     // 3. Composer Install
     if (!empty($options['composer']) && file_exists("$dir/composer.json")) {
-        $cmd = "cd " . escapeshellarg($dir) . " && export COMPOSER_ALLOW_SUPERUSER=1 && composer install --no-interaction --prefer-dist --optimize-autoloader 2>&1";
+        @mkdir('/tmp/composer', 0777, true);
+        @chmod('/tmp/composer', 0777);
+
+        $auth_env = '';
+        $token_file = './.github_token';
+        if (file_exists($token_file)) {
+            $token = trim(@file_get_contents($token_file));
+            if ($token) {
+                $auth_json = json_encode(['github-oauth' => ['github.com' => $token]]);
+                $auth_env = 'export COMPOSER_AUTH=' . escapeshellarg($auth_json) . ' && ';
+            }
+        }
+
+        $cmd = "cd " . escapeshellarg($dir) . " && export COMPOSER_HOME=/tmp/composer && export COMPOSER_ALLOW_SUPERUSER=1 && export COMPOSER_MEMORY_LIMIT=-1 && export COMPOSER_PROCESS_TIMEOUT=600 && {$auth_env}composer install --no-interaction --prefer-dist --optimize-autoloader 2>&1";
         $comp_out = [];
         $comp_ret = 0;
         exec($cmd, $comp_out, $comp_ret);
+
+        // Auto-patch upstream migration timestamp conflict in laravel-core-functions
+        $conflict_mig = "$dir/vendor/tim-it-diskominfobintan/laravel-core-functions/database/migrations/0001_01_01_000007_create_profile_role_bindings_table.php";
+        $fixed_mig = "$dir/vendor/tim-it-diskominfobintan/laravel-core-functions/database/migrations/2025_06_10_144612_create_profile_role_bindings_table.php";
+        if (file_exists($conflict_mig)) {
+            @rename($conflict_mig, $fixed_mig);
+        }
+
+        @exec("chmod -R 777 " . escapeshellarg($dir) . " 2>/dev/null");
+
         $steps[] = [
             'step' => 'Composer Install',
             'status' => ($comp_ret === 0) ? 'ok' : 'warn',

@@ -187,6 +187,13 @@ if [ -f "$TARGET_DIR/composer.json" ]; then
             echo ""
             read -p "Jalankan migrasi database (php artisan migrate:fresh --seed)? [Y/n]: " MIGRATE_CONFIRM
             if [[ "$MIGRATE_CONFIRM" =~ ^[Yy]$ || -z "$MIGRATE_CONFIRM" ]]; then
+                # Auto-patch upstream migration timestamp conflict in laravel-core-functions
+                CONFLICT_MIG="$TARGET_DIR/vendor/tim-it-diskominfobintan/laravel-core-functions/database/migrations/0001_01_01_000007_create_profile_role_bindings_table.php"
+                FIXED_MIG="$TARGET_DIR/vendor/tim-it-diskominfobintan/laravel-core-functions/database/migrations/2025_06_10_144612_create_profile_role_bindings_table.php"
+                if [ -f "$CONFLICT_MIG" ]; then
+                    mv "$CONFLICT_MIG" "$FIXED_MIG" 2>/dev/null || true
+                fi
+
                 echo -e "${YELLOW}Menjalankan php artisan migrate:fresh --seed...${NC}"
                 docker exec -it -w "/var/www/html/$REPO_NAME" "egov-$PHP_CONTAINER" php artisan migrate:fresh --seed --force
                 echo -e "${GREEN}✔ Database migration & seed selesai.${NC}"
