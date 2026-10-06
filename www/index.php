@@ -27,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $content = "php={$php}\ntype={$type}\nentry={$entry}\nide={$ide}\n";
         $saved = @file_put_contents("./$project/.ws", $content);
         if ($saved !== false) {
+            ensure_code_workspace($project);
             echo json_encode(['success' => true]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Gagal menulis file .ws (Permission Denied). Jalankan fix-perms di terminal.']);
@@ -34,6 +35,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } else {
         echo json_encode(['success' => false, 'message' => 'Project tidak valid']);
     }
+    exit;
+}
+
+// Helper untuk memastikan file workspace (.code-workspace) tersedia
+function ensure_code_workspace($project) {
+    if (!$project || !is_dir("./$project")) return false;
+    $ws_file = "./$project/{$project}.code-workspace";
+    if (!file_exists($ws_file)) {
+        $data = [
+            "folders" => [
+                [
+                    "name" => $project,
+                    "path" => "."
+                ]
+            ],
+            "settings" => new stdClass()
+        ];
+        @file_put_contents($ws_file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        @chmod($ws_file, 0666);
+    }
+    return true;
+}
+
+// 2. Handle API Ensure Workspace File (.code-workspace)
+if (isset($_GET['action']) && $_GET['action'] === 'ensure_workspace') {
+    if (ob_get_level()) ob_clean();
+    header('Content-Type: application/json');
+    $project = preg_replace('/[^a-zA-Z0-9_\-]/', '', $_GET['project'] ?? '');
+    $res = ensure_code_workspace($project);
+    echo json_encode(['success' => $res]);
     exit;
 }
 
@@ -172,6 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $content = "php={$php}\ntype=auto\nentry=auto\n";
     @file_put_contents("./$repo/.ws", $content);
     @chmod("./$repo/.ws", 0666);
+    ensure_code_workspace($repo);
 
     // Setup .env jika ada .env.example
     if (file_exists("./$repo/.env.example") && !file_exists("./$repo/.env")) {
@@ -693,9 +725,10 @@ foreach ($all_items as $item) {
                         <div class="col-6">
                             <label class="form-label text-secondary small fw-bold">DISTRO WSL</label>
                             <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary font-monospace" id="prefWslDistro" placeholder="Ubuntu" value="Ubuntu">
+                            <div class="form-text text-secondary" style="font-size: 0.68rem;">Cek: <code>wsl -l -v</code> di PowerShell.</div>
                         </div>
                         <div class="col-6">
-                            <label class="form-label text-secondary small fw-bold">MODE INTEGRASI WSL</label>
+                            <label class="form-label text-secondary small fw-bold">MODE INTEGRASI WSL (VS CODE)</label>
                             <select class="form-select form-select-sm bg-dark text-light border-secondary" id="prefWslMode">
                                 <option value="remote">Remote WSL (Rekomendasi)</option>
                                 <option value="unc">Network Share (UNC)</option>
@@ -703,14 +736,65 @@ foreach ($all_items as $item) {
                         </div>
                     </div>
 
-                    <div class="mb-2">
-                        <label class="form-label text-secondary small fw-bold">PROTOKOL ANTIGRAVITY</label>
-                        <select class="form-select form-select-sm bg-dark text-light border-secondary" id="prefAntigravityProtocol">
-                            <option value="antigravity-ide">antigravity-ide:// (Antigravity IDE Code Editor - Default)</option>
-                            <option value="antigravity">antigravity:// (Antigravity 2.0 Desktop Chat Canvas)</option>
-                        </select>
-                        <div class="form-text text-secondary small">
-                            Gunakan <code>antigravity-ide://</code> agar membuka editor koding, bukan aplikasi chat bawaan.
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label text-secondary small fw-bold">TARGET BUKA</label>
+                            <select class="form-select form-select-sm bg-dark text-light border-secondary" id="prefOpenTarget">
+                                <option value="folder">Folder Langsung (Standar /)</option>
+                                <option value="workspace">File Workspace (.code-workspace)</option>
+                            </select>
+                            <div class="form-text text-secondary" style="font-size: 0.68rem;">Pilih Workspace jika folder tidak mau terbuka.</div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label text-secondary small fw-bold">PROTOKOL ANTIGRAVITY</label>
+                            <select class="form-select form-select-sm bg-dark text-light border-secondary" id="prefAntigravityProtocol">
+                                <option value="antigravity-ide">antigravity-ide:// (Editor Kode)</option>
+                                <option value="antigravity">antigravity:// (Desktop Chat Canvas)</option>
+                            </select>
+                            <div class="form-text text-secondary" style="font-size: 0.68rem;">Default: <code>antigravity-ide://</code></div>
+                        </div>
+                    </div>
+
+                    <!-- Live Preview & Deep-Link Tester -->
+                    <div class="card bg-black bg-opacity-50 border-secondary p-3 mt-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-uppercase text-secondary fw-bold" style="font-size: 0.72rem; letter-spacing: 0.05rem;">
+                                <i class="bi bi-eye-fill me-1 text-info"></i>Live Preview & Pengujian Deep-Link
+                            </span>
+                            <span class="badge bg-secondary font-monospace" style="font-size: 0.65rem;" id="prefPreviewProjectName">contoh-project</span>
+                        </div>
+                        
+                        <!-- VS Code Preview -->
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small text-info fw-bold" style="font-size: 0.75rem;"><i class="bi bi-code-slash me-1"></i>VS Code URI:</span>
+                                <button type="button" class="btn btn-outline-info py-0 px-2" style="font-size: 0.68rem;" onclick="testLaunchEditor('vscode')">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i>Tes Buka VS Code
+                                </button>
+                            </div>
+                            <div class="p-1 px-2 bg-dark rounded border border-secondary border-opacity-50 font-monospace text-truncate text-secondary" style="font-size: 0.7rem;" id="prefPreviewVSCodeUri">...</div>
+                        </div>
+
+                        <!-- Antigravity Preview -->
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small text-purple fw-bold" style="font-size: 0.75rem;"><i class="bi bi-rocket-takeoff me-1"></i>Antigravity IDE URI:</span>
+                                <button type="button" class="btn btn-outline-purple py-0 px-2" style="font-size: 0.68rem;" onclick="testLaunchEditor('antigravity')">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i>Tes Buka Antigravity
+                                </button>
+                            </div>
+                            <div class="p-1 px-2 bg-dark rounded border border-secondary border-opacity-50 font-monospace text-truncate text-secondary" style="font-size: 0.7rem;" id="prefPreviewAntigravityUri">...</div>
+                        </div>
+
+                        <!-- CLI Command Preview -->
+                        <div>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small text-warning fw-bold" style="font-size: 0.75rem;"><i class="bi bi-terminal me-1"></i>Perintah Terminal CLI:</span>
+                                <button type="button" class="btn btn-outline-warning py-0 px-2" style="font-size: 0.68rem;" onclick="copyPreviewCli()">
+                                    <i class="bi bi-clipboard me-1"></i>Salin CLI
+                                </button>
+                            </div>
+                            <div class="p-1 px-2 bg-dark rounded border border-secondary border-opacity-50 font-monospace text-truncate text-secondary" style="font-size: 0.7rem;" id="prefPreviewCliCmd">...</div>
                         </div>
                     </div>
                 </div>
@@ -979,19 +1063,40 @@ foreach ($all_items as $item) {
 
             const hostPath = localStorage.getItem('egov_host_path') || localStorage.getItem('gov_host_path') || '';
             const inputHostPath = document.getElementById('prefHostPath');
-            if (inputHostPath) inputHostPath.value = hostPath;
+            if (inputHostPath) {
+                inputHostPath.value = hostPath;
+                inputHostPath.oninput = updatePreviewUrls;
+            }
 
             const wslDistro = localStorage.getItem('egov_wsl_distro') || 'Ubuntu';
             const inputDistro = document.getElementById('prefWslDistro');
-            if (inputDistro) inputDistro.value = wslDistro;
+            if (inputDistro) {
+                inputDistro.value = wslDistro;
+                inputDistro.oninput = updatePreviewUrls;
+            }
 
             const wslMode = localStorage.getItem('egov_wsl_mode') || 'remote';
             const selectMode = document.getElementById('prefWslMode');
-            if (selectMode) selectMode.value = wslMode;
+            if (selectMode) {
+                selectMode.value = wslMode;
+                selectMode.onchange = updatePreviewUrls;
+            }
+
+            const openTarget = localStorage.getItem('egov_open_target') || 'folder';
+            const selectTarget = document.getElementById('prefOpenTarget');
+            if (selectTarget) {
+                selectTarget.value = openTarget;
+                selectTarget.onchange = updatePreviewUrls;
+            }
 
             const agyProto = localStorage.getItem('egov_antigravity_protocol') || 'antigravity-ide';
             const selectProto = document.getElementById('prefAntigravityProtocol');
-            if (selectProto) selectProto.value = agyProto;
+            if (selectProto) {
+                selectProto.value = agyProto;
+                selectProto.onchange = updatePreviewUrls;
+            }
+
+            updatePreviewUrls();
         }
 
         function updateIdePreferences() {
@@ -1013,7 +1118,7 @@ foreach ($all_items as $item) {
             preferencesModalInstance.show();
         }
 
-        function saveAllPreferences() {
+        function saveAllPreferences(closeModal = true) {
             const inputPath = document.getElementById('prefHostPath');
             if (inputPath) {
                 const val = inputPath.value.trim().replace(/\\/g, '/').replace(/\/+$/, '');
@@ -1034,15 +1139,93 @@ foreach ($all_items as $item) {
                 localStorage.setItem('egov_wsl_mode', selectMode.value);
             }
 
+            const selectTarget = document.getElementById('prefOpenTarget');
+            if (selectTarget) {
+                localStorage.setItem('egov_open_target', selectTarget.value);
+            }
+
             const selectProto = document.getElementById('prefAntigravityProtocol');
             if (selectProto) {
                 localStorage.setItem('egov_antigravity_protocol', selectProto.value);
             }
 
-            if (preferencesModalInstance) {
-                preferencesModalInstance.hide();
+            updatePreviewUrls();
+
+            if (closeModal) {
+                if (preferencesModalInstance) {
+                    preferencesModalInstance.hide();
+                }
+                showToast('<i class="bi bi-check-circle-fill text-success me-2"></i>Pengaturan preferensi dashboard berhasil disimpan!');
             }
-            showToast('<i class="bi bi-check-circle-fill text-success me-2"></i>Pengaturan preferensi dashboard berhasil disimpan!');
+        }
+
+        function getActiveProjectSample() {
+            const firstCard = document.querySelector('.project-item');
+            return firstCard ? firstCard.getAttribute('data-name') : 'absensi';
+        }
+
+        function updatePreviewUrls() {
+            const inputPath = document.getElementById('prefHostPath');
+            const inputDistro = document.getElementById('prefWslDistro');
+            const selectMode = document.getElementById('prefWslMode');
+            const selectTarget = document.getElementById('prefOpenTarget');
+            const selectProto = document.getElementById('prefAntigravityProtocol');
+
+            let hostPath = inputPath ? inputPath.value.trim().replace(/\\/g, '/').replace(/\/+$/, '') : '';
+            const distro = inputDistro ? (inputDistro.value.trim() || 'Ubuntu') : 'Ubuntu';
+            const wslMode = selectMode ? selectMode.value : 'remote';
+            const openTarget = selectTarget ? selectTarget.value : 'folder';
+            const agyProto = selectProto ? selectProto.value : 'antigravity-ide';
+            const isWindows = navigator.userAgent.includes('Windows');
+
+            const sampleProject = getActiveProjectSample();
+            const badgeProject = document.getElementById('prefPreviewProjectName');
+            if (badgeProject) badgeProject.textContent = sampleProject;
+
+            const suffix = (openTarget === 'workspace') 
+                ? `${sampleProject}/${sampleProject}.code-workspace` 
+                : `${sampleProject}/`;
+
+            let vscodeUri = '';
+            let agyUri = '';
+            let cliCmd = '';
+
+            if (!hostPath) {
+                vscodeUri = '(Masukkan Path Folder www terlebih dahulu)';
+                agyUri = '(Masukkan Path Folder www terlebih dahulu)';
+                cliCmd = `code www/${sampleProject}`;
+            } else {
+                if (hostPath.startsWith('//wsl.localhost/') || hostPath.startsWith('//wsl$/')) {
+                    vscodeUri = `vscode://file${hostPath}/${suffix}`;
+                    agyUri = `${agyProto}://file${hostPath}/${suffix}`;
+                    cliCmd = `code "${hostPath.replace(/\//g, '\\')}\\${(openTarget === 'workspace') ? sampleProject + '\\' + sampleProject + '.code-workspace' : sampleProject}"`;
+                } else if (isWindows && hostPath.startsWith('/')) {
+                    if (wslMode === 'unc') {
+                        vscodeUri = `vscode://file//wsl.localhost/${distro}${hostPath}/${suffix}`;
+                    } else {
+                        vscodeUri = `vscode://vscode-remote/wsl+${distro}${hostPath}/${suffix}`;
+                    }
+                    agyUri = `${agyProto}://file//wsl.localhost/${distro}${hostPath}/${suffix}`;
+                    cliCmd = `code "\\\\wsl.localhost\\${distro}${hostPath.replace(/\//g, '\\')}\\${(openTarget === 'workspace') ? sampleProject + '\\' + sampleProject + '.code-workspace' : sampleProject}"`;
+                } else if (/^[a-zA-Z]:/.test(hostPath)) {
+                    vscodeUri = `vscode://file/${hostPath}/${suffix}`;
+                    agyUri = `${agyProto}://file/${hostPath}/${suffix}`;
+                    cliCmd = `code "${hostPath.replace(/\//g, '\\')}\\${(openTarget === 'workspace') ? sampleProject + '\\' + sampleProject + '.code-workspace' : sampleProject}"`;
+                } else {
+                    vscodeUri = `vscode://file${hostPath}/${suffix}`;
+                    agyUri = `${agyProto}://file${hostPath}/${suffix}`;
+                    cliCmd = `code "${hostPath}/${(openTarget === 'workspace') ? sampleProject + '/' + sampleProject + '.code-workspace' : sampleProject}"`;
+                }
+            }
+
+            const elVS = document.getElementById('prefPreviewVSCodeUri');
+            if (elVS) elVS.textContent = vscodeUri;
+
+            const elAG = document.getElementById('prefPreviewAntigravityUri');
+            if (elAG) elAG.textContent = agyUri;
+
+            const elCli = document.getElementById('prefPreviewCliCmd');
+            if (elCli) elCli.textContent = cliCmd;
         }
 
         // Build Universal Editor URI (Smart Windows WSL / Linux / Mac Translation)
@@ -1050,10 +1233,11 @@ foreach ($all_items as $item) {
             let hostPath = (localStorage.getItem('egov_host_path') || localStorage.getItem('gov_host_path') || '').trim();
             const distro = (localStorage.getItem('egov_wsl_distro') || 'Ubuntu').trim();
             const isWindows = navigator.userAgent.includes('Windows');
+            const openTarget = localStorage.getItem('egov_open_target') || 'folder';
 
             if (!hostPath) {
                 const msg = isWindows 
-                    ? "Masukkan path folder 'www' di WSL Anda:\n(Contoh: /home/hendra/workspace/egov/www)\n\nJika menggunakan Windows biasa, masukkan drive path (Contoh: D:/egov/www)"
+                    ? "Masukkan path folder 'www' di lingkungan Anda:\n\n• Jika di WSL 2: /home/hendra/workspace/egov/www\n• Jika di Windows Drive: D:/egov/www (atau C:/...)\n• Atau UNC: //wsl.localhost/Ubuntu/home/hendra/workspace/egov/www"
                     : "Masukkan path absolut folder 'www':\n(Contoh: /home/hendra/workspace/egov/www)";
                 
                 hostPath = prompt(msg, "/home/hendra/workspace/egov/www");
@@ -1068,56 +1252,136 @@ foreach ($all_items as $item) {
             // Normalisasi backslash ke forward slash
             hostPath = hostPath.replace(/\\/g, '/').replace(/\/+$/, '');
 
+            // Suffix target: folder selalu diakhiri '/' agar VS Code / Antigravity tidak mengiranya file teks biasa
+            const suffix = (openTarget === 'workspace') 
+                ? `${projectName}/${projectName}.code-workspace` 
+                : `${projectName}/`;
+
             // KASUS 1: Path Windows UNC (//wsl.localhost/ atau //wsl$/)
             if (hostPath.startsWith('//wsl.localhost/') || hostPath.startsWith('//wsl$/')) {
-                return `${scheme}://file${hostPath}/${projectName}`;
+                return `${scheme}://file${hostPath}/${suffix}`;
             }
 
             // KASUS 2: Path Linux WSL (diawali /home, /var, dll) diakses dari browser Windows
             if (isWindows && hostPath.startsWith('/')) {
                 const wslMode = localStorage.getItem('egov_wsl_mode') || 'remote';
-                if (wslMode === 'unc') {
-                    // Windows UNC Network Path (\\wsl.localhost\Ubuntu\...)
-                    return `${scheme}://file//wsl.localhost/${distro}${hostPath}/${projectName}`;
+                
+                // PENTING: Antigravity IDE tidak memiliki ekstensi ms-vscode-remote (proprietary MS)
+                // Oleh karena itu, Antigravity IDE di Windows selalu menggunakan format UNC Network Share
+                if (scheme.startsWith('antigravity') || wslMode === 'unc') {
+                    return `${scheme}://file//wsl.localhost/${distro}${hostPath}/${suffix}`;
                 }
-                // Default: Format Resmi Remote WSL (vscode-remote://...)
-                return `${scheme}://vscode-remote/wsl+${distro}${hostPath}/${projectName}`;
+                
+                // VS Code Resmi (Microsoft Remote - WSL)
+                return `${scheme}://vscode-remote/wsl+${distro}${hostPath}/${suffix}`;
             }
 
             // KASUS 3: Path Drive Windows (C:/... atau D:/...)
             if (/^[a-zA-Z]:/.test(hostPath)) {
-                return `${scheme}://file/${hostPath}/${projectName}`;
+                return `${scheme}://file/${hostPath}/${suffix}`;
             }
 
             // KASUS 4: Path Linux di Linux Native
-            return `${scheme}://file${hostPath}/${projectName}`;
+            return `${scheme}://file${hostPath}/${suffix}`;
+        }
+
+        function buildCliCommand(editorCmd, projectName) {
+            let hostPath = (localStorage.getItem('egov_host_path') || localStorage.getItem('gov_host_path') || '').trim();
+            const distro = (localStorage.getItem('egov_wsl_distro') || 'Ubuntu').trim();
+            const isWindows = navigator.userAgent.includes('Windows');
+            const openTarget = localStorage.getItem('egov_open_target') || 'folder';
+            
+            hostPath = hostPath.replace(/\\/g, '/').replace(/\/+$/, '');
+            const targetSuffix = (openTarget === 'workspace') ? `${projectName}/${projectName}.code-workspace` : projectName;
+
+            if (isWindows) {
+                if (hostPath.startsWith('/')) {
+                    const winUnc = `\\\\wsl.localhost\\${distro}${hostPath.replace(/\//g, '\\')}\\${targetSuffix}`;
+                    return `${editorCmd} "${winUnc}"`;
+                }
+                if (/^[a-zA-Z]:/.test(hostPath)) {
+                    return `${editorCmd} "${hostPath.replace(/\//g, '\\')}\\${targetSuffix}"`;
+                }
+            }
+            return `${editorCmd} "${hostPath ? hostPath + '/' : 'www/'}${targetSuffix}"`;
+        }
+
+        function copyText(str) {
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(str).then(() => {
+                    showToast('<i class="bi bi-check-circle-fill text-success me-2"></i>Perintah CLI disalin ke clipboard!');
+                }).catch(() => {});
+            }
+        }
+
+        function copyPreviewCli() {
+            const elCli = document.getElementById('prefPreviewCliCmd');
+            if (elCli && elCli.textContent && !elCli.textContent.includes('...')) {
+                copyText(elCli.textContent);
+            }
+        }
+
+        function testLaunchEditor(editorType) {
+            saveAllPreferences(false);
+            const sampleProject = getActiveProjectSample();
+            if (editorType === 'vscode') {
+                openInVSCode(sampleProject);
+            } else {
+                openInAntigravity(sampleProject);
+            }
         }
 
         // Open in VS Code
         function openInVSCode(projectName) {
+            // Pastikan file workspace ada di server
+            fetch(`index.php?action=ensure_workspace&project=${encodeURIComponent(projectName)}`).catch(() => {});
+
             const uri = buildEditorUri('vscode', projectName);
             if (!uri) return;
 
             window.location.href = uri;
-            const cliCmd = `code www/${projectName}`;
+            const cliCmd = buildCliCommand('code', projectName);
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(cliCmd).catch(() => {});
             }
-            showToast(`<i class="bi bi-code-slash text-info me-2"></i>Membuka <strong>${projectName}</strong> di VS Code...<br><span class="text-secondary small font-monospace">CLI: ${cliCmd} (disalin)</span>`);
+            showToast(`
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="bi bi-code-slash text-info me-2"></i>Membuka <strong>${projectName}</strong> di VS Code...<br>
+                        <span class="text-secondary small font-monospace">${cliCmd}</span>
+                    </div>
+                    <button class="btn btn-sm btn-outline-info ms-2 py-0 px-2 text-nowrap" style="font-size: 0.75rem;" onclick="copyText('${cliCmd.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">
+                        <i class="bi bi-clipboard"></i> Salin
+                    </button>
+                </div>
+            `);
         }
 
         // Open in Antigravity IDE
         function openInAntigravity(projectName) {
+            // Pastikan file workspace ada di server
+            fetch(`index.php?action=ensure_workspace&project=${encodeURIComponent(projectName)}`).catch(() => {});
+
             const scheme = localStorage.getItem('egov_antigravity_protocol') || 'antigravity-ide';
             const uri = buildEditorUri(scheme, projectName);
             if (!uri) return;
 
             window.location.href = uri;
-            const cliCmd = `antigravity-ide www/${projectName}`;
+            const cliCmd = buildCliCommand('antigravity-ide', projectName);
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(cliCmd).catch(() => {});
             }
-            showToast(`<i class="bi bi-rocket-takeoff text-purple me-2"></i>Membuka Antigravity IDE untuk <strong>${projectName}</strong>...<br><span class="text-secondary small font-monospace">CLI: ${cliCmd} (disalin)</span>`);
+            showToast(`
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="bi bi-rocket-takeoff text-purple me-2"></i>Membuka Antigravity IDE untuk <strong>${projectName}</strong>...<br>
+                        <span class="text-secondary small font-monospace">${cliCmd}</span>
+                    </div>
+                    <button class="btn btn-sm btn-outline-purple ms-2 py-0 px-2 text-nowrap" style="font-size: 0.75rem;" onclick="copyText('${cliCmd.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">
+                        <i class="bi bi-clipboard"></i> Salin
+                    </button>
+                </div>
+            `);
         }
 
         // GitHub Explorer State & Functions

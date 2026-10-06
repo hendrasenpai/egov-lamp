@@ -18,6 +18,7 @@ www/*
 
 # Temporary & Workspace files
 .ws
+*.code-workspace
 *.tmp
 *.log
 *.zip
