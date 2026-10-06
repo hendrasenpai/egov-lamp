@@ -28,7 +28,8 @@ cd "$ROOT_DIR" || { echo -e "${RED}Direktori egov-lamp tidak ditemukan!${NC}"; e
 
 clear
 echo -e "${CYAN}=====================================================${NC}"
-echo -e "${CYAN}        🏛️   EGOV-LAMP ENVIRONMENT MANAGER            ${NC}"
+echo -e "${CYAN}   🏛️   E-GOVERNMENT DISKOMINFO KABUPATEN BINTAN      ${NC}"
+echo -e "${CYAN}       Multi-PHP Local Development Environment       ${NC}"
 echo -e "${CYAN}=====================================================${NC}"
 echo -e "Direktori : ${YELLOW}$ROOT_DIR${NC}"
 echo ""

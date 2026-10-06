@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-title EGOV-LAMP Environment Manager
+title E-Gov Diskominfo Bintan Environment Manager
 
 :: Auto-detect root directory of egov-lamp
 set "SCRIPT_DIR=%~dp0"
@@ -10,7 +10,8 @@ set "ROOT_DIR=%CD%"
 :MENU
 cls
 echo =====================================================
-echo          EGOV-LAMP ENVIRONMENT MANAGER (Windows)
+echo    E-GOVERNMENT DISKOMINFO KABUPATEN BINTAN (Windows)
+echo       Multi-PHP Local Development Environment
 echo =====================================================
 echo Direktori : %ROOT_DIR%
 echo.

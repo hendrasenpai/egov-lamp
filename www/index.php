@@ -114,7 +114,7 @@ foreach ($all_items as $item) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Workspace GOV - Local Dashboard</title>
+    <title>eGov-LAMP — Diskominfo Kabupaten Bintan</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
@@ -146,7 +146,7 @@ foreach ($all_items as $item) {
     <!-- Top Navigation -->
     <nav class="navbar navbar-expand-lg border-bottom border-secondary border-opacity-25 px-4 py-2">
         <div class="container-fluid">
-            <span class="navbar-brand fw-bold text-info"><i class="bi bi-shield-check me-2"></i>WORKSPACE GOV</span>
+            <span class="navbar-brand fw-bold text-info"><i class="bi bi-shield-check me-2"></i>E-GOVERNMENT DISKOMINFO BINTAN</span>
             <div class="d-flex align-items-center gap-3">
                 <span class="badge bg-secondary font-monospace"><i class="bi bi-hdd-network me-1"></i>Port: <span id="current-port"></span></span>
                 <span class="badge badge-php font-monospace"><i class="bi bi-filetype-php me-1"></i>PHP <?= $php_version ?></span>
@@ -159,8 +159,8 @@ foreach ($all_items as $item) {
         <div class="container-fluid">
             <div class="row align-items-center">
                 <div class="col-md-7">
-                    <h1 class="h3 fw-bold mb-1">Local Government Application Portal</h1>
-                    <p class="text-secondary mb-0">Lingkungan kerja terisolasi multi-PHP untuk aplikasi instansi / kedinasan.</p>
+                    <h1 class="h3 fw-bold mb-1">Portal Aplikasi e-Government Diskominfo Bintan</h1>
+                    <p class="text-secondary mb-0">Lingkungan kerja lokal terisolasi multi-PHP Bidang e-Government Diskominfo Kabupaten Bintan.</p>
                 </div>
                 <div class="col-md-5 text-md-end mt-3 mt-md-0">
                     <div class="d-inline-flex flex-wrap gap-2 justify-content-md-end align-items-center">
