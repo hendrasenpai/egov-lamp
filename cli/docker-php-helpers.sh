@@ -1,37 +1,44 @@
 #!/bin/bash
 # ==============================================================================
-# GOV-LAMP CLI HELPERS & SMART ROUTER
+# EGOV-LAMP CLI HELPERS & SMART ROUTER
 # Source file ini di ~/.bashrc atau ~/.zshrc:
-# source /path/to/gov-lamp/cli/docker-php-helpers.sh
+# source /path/to/egov-lamp/cli/docker-php-helpers.sh
 # ==============================================================================
 
-# Auto-detect root directory of gov-lamp (kompatibel Bash & Zsh)
+# Auto-detect root directory of egov-lamp (kompatibel Bash & Zsh)
 if [ -n "$BASH_SOURCE" ]; then
-    _GOV_SCRIPT_SRC="${BASH_SOURCE[0]}"
+    _EGOV_SCRIPT_SRC="${BASH_SOURCE[0]}"
 else
-    _GOV_SCRIPT_SRC="$0"
+    _EGOV_SCRIPT_SRC="$0"
 fi
-_GOV_ROOT="$(cd "$(dirname "$_GOV_SCRIPT_SRC")/.." 2>/dev/null && pwd)"
-[ -z "$_GOV_ROOT" ] && _GOV_ROOT="$PWD"
+_EGOV_ROOT="$(cd "$(dirname "$_EGOV_SCRIPT_SRC")/.." 2>/dev/null && pwd)"
+[ -z "$_EGOV_ROOT" ] && _EGOV_ROOT="$PWD"
 
-# Shortcut Command: gov (Langsung jalankan menu interactive tanpa perlu symlink)
-gov() {
-    if [ -f "$_GOV_ROOT/cli/gov" ]; then
-        bash "$_GOV_ROOT/cli/gov" "$@"
+# Shortcut Command: egov & gov (Langsung jalankan menu interactive tanpa perlu symlink)
+egov() {
+    if [ -f "$_EGOV_ROOT/cli/egov" ]; then
+        bash "$_EGOV_ROOT/cli/egov" "$@"
+    elif [ -f "$_EGOV_ROOT/cli/gov" ]; then
+        bash "$_EGOV_ROOT/cli/gov" "$@"
     else
-        echo -e "\033[0;31mError: Script launcher tidak ditemukan di $_GOV_ROOT/cli/gov\033[0m"
+        echo -e "\033[0;31mError: Script launcher tidak ditemukan di $_EGOV_ROOT/cli/egov\033[0m"
     fi
 }
+gov() { egov "$@"; }
 
-_run_gov_docker() {
+_run_egov_docker() {
     local php_ver="$1"
     shift
-    local container="gov-$php_ver"
+    local container="egov-$php_ver"
 
-    # Periksa apakah container aktif
+    # Periksa apakah container aktif (mendukung egov- atau legacy gov-)
     if ! docker ps --format '{{.Names}}' | grep -q "^${container}$"; then
-        echo -e "\033[1;33mContainer $container belum aktif. Menyalakan otomatis...\033[0m"
-        (cd "$_GOV_ROOT" && docker compose up -d database "$php_ver")
+        if docker ps --format '{{.Names}}' | grep -q "^gov-${php_ver}$"; then
+            container="gov-$php_ver"
+        else
+            echo -e "\033[1;33mContainer $container belum aktif. Menyalakan otomatis...\033[0m"
+            (cd "$_EGOV_ROOT" && docker compose up -d database "$php_ver")
+        fi
     fi
 
     # Tentukan path relatif terhadap direktori www
@@ -45,13 +52,15 @@ _run_gov_docker() {
         container_cwd="/var/www/html"
     fi
 
-    docker exec -it -w "$container_cwd" "$container" "$@"
+    local tty_flag=""
+    [ -t 0 ] && [ -t 1 ] && tty_flag="-it" || tty_flag="-i"
+    docker exec $tty_flag -w "$container_cwd" "$container" "$@"
 }
 
 # Auto-detect versi PHP dari file .ws di direktori project saat ini
-_get_gov_target_php() {
+_get_egov_target_php() {
     local dir="$PWD"
-    while [[ "$dir" != "/" ]]; do
+    while [[ "$dir" != "/" && "$dir" != "$HOME" ]]; do
         if [ -f "$dir/.ws" ]; then
             local v=$(grep -E '^php=' "$dir/.ws" | cut -d'=' -f2 | tr -d '[:space:]')
             case "$v" in
@@ -69,39 +78,39 @@ _get_gov_target_php() {
 
 # Smart CLI Auto-Routing
 artisan() {
-    local target=$(_get_gov_target_php)
-    _run_gov_docker "$target" php artisan "$@"
+    local target=$(_get_egov_target_php)
+    _run_egov_docker "$target" php artisan "$@"
 }
 
 composer() {
-    local target=$(_get_gov_target_php)
-    _run_gov_docker "$target" composer "$@"
+    local target=$(_get_egov_target_php)
+    _run_egov_docker "$target" composer "$@"
 }
 
 # Explicit PHP CLI
-php74() { _run_gov_docker "php74" php "$@"; }
-php80() { _run_gov_docker "php80" php "$@"; }
-php81() { _run_gov_docker "php81" php "$@"; }
-php82() { _run_gov_docker "php82" php "$@"; }
-php83() { _run_gov_docker "php83" php "$@"; }
+php74() { _run_egov_docker "php74" php "$@"; }
+php80() { _run_egov_docker "php80" php "$@"; }
+php81() { _run_egov_docker "php81" php "$@"; }
+php82() { _run_egov_docker "php82" php "$@"; }
+php83() { _run_egov_docker "php83" php "$@"; }
 
 # Explicit Composer CLI
-composer74() { _run_gov_docker "php74" composer "$@"; }
-composer80() { _run_gov_docker "php80" composer "$@"; }
-composer81() { _run_gov_docker "php81" composer "$@"; }
-composer82() { _run_gov_docker "php82" composer "$@"; }
-composer83() { _run_gov_docker "php83" composer "$@"; }
+composer74() { _run_egov_docker "php74" composer "$@"; }
+composer80() { _run_egov_docker "php80" composer "$@"; }
+composer81() { _run_egov_docker "php81" composer "$@"; }
+composer82() { _run_egov_docker "php82" composer "$@"; }
+composer83() { _run_egov_docker "php83" composer "$@"; }
 
 # Explicit Artisan CLI
-artisan74() { _run_gov_docker "php74" php artisan "$@"; }
-artisan80() { _run_gov_docker "php80" php artisan "$@"; }
-artisan81() { _run_gov_docker "php81" php artisan "$@"; }
-artisan82() { _run_gov_docker "php82" php artisan "$@"; }
-artisan83() { _run_gov_docker "php83" php artisan "$@"; }
+artisan74() { _run_egov_docker "php74" php artisan "$@"; }
+artisan80() { _run_egov_docker "php80" php artisan "$@"; }
+artisan81() { _run_egov_docker "php81" php artisan "$@"; }
+artisan82() { _run_egov_docker "php82" php artisan "$@"; }
+artisan83() { _run_egov_docker "php83" php artisan "$@"; }
 
 # Fix permissions untuk Laravel storage, cache, .ws, dan vhosts
 fix-perms() {
-    local container=$(docker ps --format '{{.Names}}' | grep -E '^gov-php' | head -n 1)
+    local container=$(docker ps --format '{{.Names}}' | grep -E '^egov-php|^gov-php' | head -n 1)
     if [ -z "$container" ]; then
         echo -e "\033[0;31mTidak ada container PHP yang aktif.\033[0m"
         return 1

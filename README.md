@@ -1,4 +1,4 @@
-# 🏛️ Gov-LAMP — Multi-PHP Development Environment
+# 🏛️ eGov-LAMP — Multi-PHP Development Environment
 
 [![PHP Versions](https://img.shields.io/badge/PHP-7.4%20%7C%208.0%20%7C%208.1%20%7C%208.2%20%7C%208.3-777bb4?logo=php&logoColor=white)](https://php.net)
 [![MariaDB](https://img.shields.io/badge/MariaDB-10.6-003545?logo=mariadb&logoColor=white)](https://mariadb.org)
@@ -13,7 +13,7 @@ Lingkungan pengembangan lokal modern berbasis **Docker Compose** yang dirancang 
 ## 🌟 Fitur Unggulan
 
 - **Multi-PHP Paralel / On-Demand**: Mendukung PHP **7.4, 8.0, 8.1, 8.2, dan 8.3** sekaligus dalam port berbeda.
-- **Interactive Terminal Launcher (`gov`)**: Menu terminal interaktif untuk menyalakan/mematikan container hanya dengan memilih nomor.
+- **Interactive Terminal Launcher (`egov` / `gov`)**: Menu terminal interaktif untuk menyalakan/mematikan container hanya dengan memilih nomor.
 - **Smart Web Dashboard**:
   - Deteksi otomatis framework project (**Laravel**, **CodeIgniter 3**, **CodeIgniter 4**, **PHP Native**).
   - Indikator status container aktif secara *real-time* (live ping).
@@ -34,7 +34,7 @@ Lingkungan pengembangan lokal modern berbasis **Docker Compose** yang dirancang 
 | :--- | :--- | :--- | :--- |
 | **PHP 7.4** | Apache (Bullseye) | `http://localhost:8074` | `8074` |
 | **PHP 8.0** | Apache (Bullseye) | `http://localhost:8080` | `8080` |
-| **PHP 8.1** | Apache (Bullseye) | `http://localhost:8081` | `8081` |
+| **PHP 8.1** | Apache (Bookworm) | `http://localhost:8081` | `8081` |
 | **PHP 8.2** | Apache (Bookworm) | `http://localhost:8082` | `8082` |
 | **PHP 8.3** | Apache (Bookworm) | `http://localhost:8083` | `8083` |
 | **MariaDB** | 10.6 | `127.0.0.1` / `database` | `3306` |
@@ -54,8 +54,8 @@ Lingkungan pengembangan lokal modern berbasis **Docker Compose** yang dirancang 
 
 ### 1. Clone Repository
 ```bash
-git clone git@github.com:hendrasenpai/gov-lamp.git ~/gov-lamp
-cd ~/gov-lamp
+git clone git@github.com:hendrasenpai/gov-lamp.git ~/egov-lamp
+cd ~/egov-lamp
 ```
 
 ### 2. Siapkan File Environment
@@ -63,20 +63,21 @@ cd ~/gov-lamp
 cp .env.example .env
 ```
 
-### 3. Jalankan Menggunakan Interactive Launcher (`gov`)
+### 3. Jalankan Menggunakan Interactive Launcher (`egov`)
 
 #### 🐧 Pengguna Linux, macOS, atau Windows WSL / Git Bash:
 ```bash
-chmod +x cli/gov
-./cli/gov
+chmod +x cli/egov
+./cli/egov
 ```
+*(Perintah `./cli/gov` juga tetap dapat digunakan sebagai alias).*
 
 #### 🪟 Pengguna Windows Native (Command Prompt / PowerShell):
-Cukup jalankan file `gov.bat` di folder `cli`:
+Cukup jalankan file `egov.bat` di folder `cli`:
 ```cmd
-.\cli\gov.bat
+.\cli\egov.bat
 ```
-*(Atau cukup klik dua kali file `cli/gov.bat` langsung dari File Explorer Windows).*
+*(Atau jalankan `.\cli\gov.bat` / klik dua kali langsung dari File Explorer Windows).*
 
 Pilih opsi di menu:
 - Ketik `1` untuk memilih versi PHP tertentu (misal: hanya PHP 7.4 atau PHP 8.2).
@@ -90,11 +91,11 @@ Buka browser di:
 
 ## 🛠️ Instalasi CLI Helper ke Terminal Host (Opsional)
 
-Agar Anda bisa memanggil perintah `gov` langsung dari mana saja tanpa mengetik `./cli/`:
+Agar Anda bisa memanggil perintah `egov` (dan `gov`) langsung dari mana saja tanpa mengetik `./cli/`:
 
 ### 🐧 Untuk Linux & macOS (serta Windows WSL 2 / Git Bash)
 
-*Cukup jalankan 1 perintah ini dari dalam folder `gov-lamp` yang baru Anda clone:*
+*Cukup jalankan 1 perintah ini dari dalam folder `egov-lamp`:*
 
 - **Pengguna macOS (Terminal Zsh)**:
   ```zsh
@@ -108,26 +109,23 @@ Agar Anda bisa memanggil perintah `gov` langsung dari mana saja tanpa mengetik `
   source ~/.bashrc
   ```
 
-*Selesai! Script ini otomatis mendaftarkan perintah `gov` (launcher), `artisan`, `composer`, `php74` s/d `php83`, dan `fix-perms` ke terminal Anda tanpa perlu membuat symlink manual.*
+*Selesai! Script ini otomatis mendaftarkan perintah `egov` & `gov` (launcher), `artisan`, `composer`, `php74` s/d `php83`, dan `fix-perms` ke terminal Anda tanpa perlu membuat symlink manual.*
 
-### 🪟 Untuk Windows Native (Command Prompt & PowerShell)
+### 🪟 Untuk Windows Native (PowerShell)
 
-1. Buka Windows Start Menu, ketik **"env"** dan pilih **"Edit the system environment variables"**.
-2. Klik tombol **Environment Variables...**
-3. Di bagian **User variables for [User]**, pilih baris **Path** lalu klik **Edit...**
-4. Klik tombol **New**, lalu tempel path folder `cli` Anda (contoh: `C:\Users\Username\gov-lamp\cli`).
-5. Klik **OK** pada semua jendela.
-6. Buka jendela CMD atau PowerShell baru, dan Anda bisa langsung mengetik:
-   ```cmd
-   gov
-   ```
+Buka `.\cli\egov.bat`, lalu pilih opsi **`[6] Pasang Shortcut CLI ke PowerShell`**.
+
+Atau muat langsung di PowerShell:
+```powershell
+. .\cli\docker-php-helpers.ps1
+```
 
 ---
 
 ## 📁 Struktur Direktori
 
 ```text
-gov-lamp/
+egov-lamp/
 ├── bin/                 # Dockerfiles untuk masing-masing versi PHP & MariaDB
 │   ├── mariadb106/
 │   ├── php74/
@@ -136,8 +134,12 @@ gov-lamp/
 │   ├── php82/
 │   └── php83/
 ├── cli/                 # Script pembantu terminal
-│   ├── gov              # Interactive terminal launcher
-│   └── docker-php-helpers.sh # Shell functions & auto router
+│   ├── egov             # Interactive terminal launcher (Bash)
+│   ├── gov              # Backward-compatible wrapper
+│   ├── egov.bat         # Interactive terminal launcher (Windows CMD/PowerShell)
+│   ├── gov.bat          # Backward-compatible wrapper Windows
+│   ├── docker-php-helpers.sh   # Bash/Zsh helpers & smart router
+│   └── docker-php-helpers.ps1  # Windows PowerShell helpers & smart router
 ├── config/              # Konfigurasi Apache, PHP.ini, dan vhosts
 │   ├── php/
 │   ├── phpmyadmin/

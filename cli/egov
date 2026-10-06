@@ -1,0 +1,133 @@
+#!/bin/bash
+# ==============================================================================
+# EGOV-LAMP CONTROL CENTER
+# Multi-PHP Development Environment (7.4, 8.0, 8.1, 8.2, 8.3)
+# ==============================================================================
+
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+RED='\033[0;31m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+# Auto-detect root directory of egov-lamp
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/../docker-compose.yml" ]; then
+    ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+elif [ -f "./docker-compose.yml" ]; then
+    ROOT_DIR="$(pwd)"
+elif [ -d "/home/hendra/workspace/egov" ]; then
+    ROOT_DIR="/home/hendra/workspace/egov"
+else
+    ROOT_DIR="/home/hendra/workspace/gov"
+fi
+
+cd "$ROOT_DIR" || { echo -e "${RED}Direktori egov-lamp tidak ditemukan!${NC}"; exit 1; }
+
+clear
+echo -e "${CYAN}=====================================================${NC}"
+echo -e "${CYAN}        🏛️   EGOV-LAMP ENVIRONMENT MANAGER            ${NC}"
+echo -e "${CYAN}=====================================================${NC}"
+echo -e "Direktori : ${YELLOW}$ROOT_DIR${NC}"
+echo ""
+echo -e "Pilih aksi yang ingin dilakukan:"
+echo -e "  ${GREEN}1)${NC} Nyalakan PHP Tertentu (Pilih Versi: 7.4 - 8.3)"
+echo -e "  ${GREEN}2)${NC} Nyalakan Default / Rekomendasi (PHP 7.4 + DB + PMA)"
+echo -e "  ${GREEN}3)${NC} Nyalakan SEMUA Versi PHP Sekaligus"
+echo -e "  ${RED}4)${NC} Matikan Semua Container egov-lamp"
+echo -e "  ${YELLOW}5)${NC} Cek Status Container Aktif"
+echo -e "  ${BLUE}6)${NC} Perbaiki Permission Folder (fix-perms)"
+echo -e "  ${BOLD}0)${NC} Keluar"
+echo ""
+read -p "Masukkan pilihan [0-6]: " ACTION_CHOICE
+
+case $ACTION_CHOICE in
+    1)
+        echo ""
+        echo -e "Pilih versi PHP (bisa lebih dari satu, pisahkan spasi, contoh: 1 5):"
+        echo -e "  ${BOLD}1)${NC} PHP 7.4 (Port :8074)"
+        echo -e "  ${BOLD}2)${NC} PHP 8.0 (Port :8080)"
+        echo -e "  ${BOLD}3)${NC} PHP 8.1 (Port :8081)"
+        echo -e "  ${BOLD}4)${NC} PHP 8.2 (Port :8082)"
+        echo -e "  ${BOLD}5)${NC} PHP 8.3 (Port :8083)"
+        echo ""
+        read -p "Pilihan versi: " -a VERSIONS
+
+        SERVICES="database phpmyadmin redis"
+        for v in "${VERSIONS[@]}"; do
+            case $v in
+                1) SERVICES="$SERVICES php74" ;;
+                2) SERVICES="$SERVICES php80" ;;
+                3) SERVICES="$SERVICES php81" ;;
+                4) SERVICES="$SERVICES php82" ;;
+                5) SERVICES="$SERVICES php83" ;;
+            esac
+        done
+
+        echo ""
+        echo -e "${YELLOW}Menyalakan service: $SERVICES...${NC}"
+        docker compose up -d $SERVICES
+        echo ""
+        echo -e "${GREEN}✔ Berhasil dinyalakan!${NC}"
+        echo -e "Dashboard Web : ${CYAN}http://localhost:8083${NC} (atau sesuai port PHP)"
+        echo -e "phpMyAdmin    : ${CYAN}http://localhost:8888${NC}"
+        echo -e "MariaDB Port  : ${CYAN}3306${NC} (user: root/docker, pass: tiger/docker)"
+        ;;
+    2)
+        echo ""
+        echo -e "${YELLOW}Menyalakan mode Default (PHP 7.4 + DB + phpMyAdmin + Redis)...${NC}"
+        docker compose up -d database phpmyadmin redis php74
+        echo ""
+        echo -e "${GREEN}✔ Berhasil dinyalakan!${NC}"
+        echo -e "Dashboard Web : ${CYAN}http://localhost:8074${NC}"
+        echo -e "phpMyAdmin    : ${CYAN}http://localhost:8888${NC}"
+        ;;
+    3)
+        echo ""
+        echo -e "${YELLOW}Menyalakan SEMUA container (PHP 7.4, 8.0, 8.1, 8.2, 8.3)...${NC}"
+        docker compose up -d
+        echo ""
+        echo -e "${GREEN}✔ Semua container aktif!${NC}"
+        echo -e "Dashboard Web : ${CYAN}http://localhost:8083${NC}"
+        ;;
+    4)
+        echo ""
+        echo -e "${RED}Mematikan semua container egov-lamp...${NC}"
+        docker compose down
+        echo -e "${GREEN}✔ Container berhasil dimatikan.${NC}"
+        ;;
+    5)
+        echo ""
+        echo -e "${CYAN}--- Status Container egov-lamp ---${NC}"
+        docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "egov-|gov-|CONTAINER ID"
+        ;;
+    6)
+        echo ""
+        echo -e "${YELLOW}Memperbaiki file permissions...${NC}"
+        CONTAINER=$(docker ps --format '{{.Names}}' | grep -E '^egov-php|^gov-php' | head -n 1)
+        if [ -z "$CONTAINER" ]; then
+            echo -e "${RED}Error: Container PHP harus dalam keadaan aktif untuk menjalankan fix-perms.${NC}"
+            exit 1
+        fi
+        docker exec "$CONTAINER" bash -c '
+            chmod -R 777 /etc/apache2/sites-enabled 2>/dev/null
+            for d in /var/www/html/*/ ; do
+                [ -f "$d/.ws" ] && chmod 666 "$d/.ws" 2>/dev/null
+                if [ -d "$d/storage" ] || [ -d "$d/bootstrap/cache" ]; then
+                    chmod -R 777 "$d/storage" "$d/bootstrap/cache" 2>/dev/null
+                    echo "✔ Fixed: $(basename "$d")"
+                fi
+            done
+        '
+        echo -e "${GREEN}✔ Selesai! Permissions storage & cache sudah aman.${NC}"
+        ;;
+    0)
+        exit 0
+        ;;
+    *)
+        echo -e "${RED}Pilihan tidak valid.${NC}"
+        exit 1
+        ;;
+esac

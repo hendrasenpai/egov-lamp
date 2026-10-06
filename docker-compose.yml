@@ -5,7 +5,7 @@ services:
   database:
     build:
       context: "./bin/${DATABASE}"
-    container_name: "gov-database"
+    container_name: "egov-database"
     ports:
       - "127.0.0.1:${HOST_MACHINE_MYSQL_PORT}:3306"
     command: --max-allowed-packet=512M
@@ -24,7 +24,7 @@ services:
   # ==========================================
   phpmyadmin:
     image: phpmyadmin
-    container_name: "gov-phpmyadmin"
+    container_name: "egov-phpmyadmin"
     links:
       - database
     environment:
@@ -48,7 +48,7 @@ services:
   # Redis Cache
   # ==========================================
   redis:
-    container_name: "gov-redis"
+    container_name: "egov-redis"
     image: redis:latest
     ports:
       - "127.0.0.1:${HOST_MACHINE_REDIS_PORT}:6379"
@@ -59,7 +59,7 @@ services:
   php74:
     build:
       context: ./bin/php74
-    container_name: "gov-php74"
+    container_name: "egov-php74"
     ports:
       - "8074:80"
       - "8474:443"
@@ -90,7 +90,7 @@ services:
   php80:
     build:
       context: ./bin/php8
-    container_name: "gov-php80"
+    container_name: "egov-php80"
     ports:
       - "8080:80"
       - "8480:443"
@@ -121,7 +121,7 @@ services:
   php81:
     build:
       context: ./bin/php81
-    container_name: "gov-php81"
+    container_name: "egov-php81"
     ports:
       - "8081:80"
       - "8481:443"
@@ -152,7 +152,7 @@ services:
   php82:
     build:
       context: ./bin/php82
-    container_name: "gov-php82"
+    container_name: "egov-php82"
     ports:
       - "8082:80"
       - "8482:443"
@@ -183,7 +183,7 @@ services:
   php83:
     build:
       context: ./bin/php83
-    container_name: "gov-php83"
+    container_name: "egov-php83"
     ports:
       - "8083:80"
       - "8483:443"

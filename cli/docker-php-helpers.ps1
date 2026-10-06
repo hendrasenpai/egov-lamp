@@ -1,16 +1,16 @@
 # ==============================================================================
-# GOV-LAMP CLI HELPERS FOR WINDOWS POWERSHELL
+# EGOV-LAMP CLI HELPERS FOR WINDOWS POWERSHELL
 # ==============================================================================
 # Cara pemakaian di PowerShell:
 # 1. Untuk sesi saat ini:
-#    . C:\gov-lamp\cli\docker-php-helpers.ps1
+#    . C:\egov-lamp\cli\docker-php-helpers.ps1
 #
 # 2. Agar aktif permanen di setiap buka PowerShell:
 #    if (!(Test-Path $PROFILE)) { New-Item -Type File -Path $PROFILE -Force }
-#    Add-Content -Path $PROFILE -Value "`n. C:\gov-lamp\cli\docker-php-helpers.ps1"
+#    Add-Content -Path $PROFILE -Value "`n. C:\egov-lamp\cli\docker-php-helpers.ps1"
 # ==============================================================================
 
-# Deteksi root folder gov-lamp secara dinamis
+# Deteksi root folder egov-lamp secara dinamis
 $scriptDir = $PSScriptRoot
 if (-not $scriptDir -and $MyInvocation.MyCommand.Path) {
     $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -19,39 +19,55 @@ if (-not $scriptDir -and $MyInvocation.MyCommand.Definition) {
     $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 }
 
-$script:GOV_ROOT = ""
+$script:EGOV_ROOT = ""
 if ($scriptDir) {
-    $script:GOV_ROOT = Split-Path -Parent $scriptDir
+    $script:EGOV_ROOT = Split-Path -Parent $scriptDir
 }
 
-if (-not $script:GOV_ROOT -or -not (Test-Path "$script:GOV_ROOT\docker-compose.yml")) {
-    if (Test-Path "C:\gov-lamp\docker-compose.yml") {
-        $script:GOV_ROOT = "C:\gov-lamp"
+if (-not $script:EGOV_ROOT -or -not (Test-Path "$script:EGOV_ROOT\docker-compose.yml")) {
+    if (Test-Path "C:\egov-lamp\docker-compose.yml") {
+        $script:EGOV_ROOT = "C:\egov-lamp"
+    } elseif (Test-Path "C:\gov-lamp\docker-compose.yml") {
+        $script:EGOV_ROOT = "C:\gov-lamp"
     } elseif (Test-Path "$PWD\docker-compose.yml") {
-        $script:GOV_ROOT = "$PWD"
+        $script:EGOV_ROOT = "$PWD"
     } elseif (Test-Path "$PWD\..\docker-compose.yml") {
-        $script:GOV_ROOT = (Resolve-Path "$PWD\..").Path
+        $script:EGOV_ROOT = (Resolve-Path "$PWD\..").Path
     }
 }
 
-# Shortcut command: gov (membuka interactive menu)
-function gov {
-    & "$script:GOV_ROOT\cli\gov.bat" @args
+# Shortcut command: egov & gov (membuka interactive menu)
+function egov {
+    if (Test-Path "$script:EGOV_ROOT\cli\egov.bat") {
+        & "$script:EGOV_ROOT\cli\egov.bat" @args
+    } else {
+        & "$script:EGOV_ROOT\cli\gov.bat" @args
+    }
 }
+function gov { egov @args }
 
-function Invoke-GovDocker {
+function Invoke-EgovDocker {
     param(
         [Parameter(Mandatory=$true, Position=0)][string]$PhpVer,
         [Parameter(ValueFromRemainingArguments=$true)][string[]]$CmdArgs
     )
 
-    $container = "gov-$PhpVer"
+    $container = "egov-$PhpVer"
 
-    # Cek apakah container sedang running
+    # Cek apakah container sedang running (mendukung egov- atau legacy gov-)
     $isRunning = docker ps --format '{{.Names}}' | Where-Object { $_ -eq $container }
     if (-not $isRunning) {
+        $legacy = "gov-$PhpVer"
+        $isLegacyRunning = docker ps --format '{{.Names}}' | Where-Object { $_ -eq $legacy }
+        if ($isLegacyRunning) {
+            $container = $legacy
+            $isRunning = $true
+        }
+    }
+
+    if (-not $isRunning) {
         Write-Host "Container $container belum aktif. Menyalakan otomatis..." -ForegroundColor Yellow
-        Push-Location $script:GOV_ROOT
+        Push-Location $script:EGOV_ROOT
         docker compose up -d database $PhpVer
         Pop-Location
     }
@@ -84,7 +100,7 @@ function Invoke-GovDocker {
     }
 }
 
-function Get-GovTargetPhp {
+function Get-EgovTargetPhp {
     $currentDir = (Get-Location).Path
     while ($currentDir -and (Split-Path -Parent $currentDir) -ne $currentDir) {
         $wsFile = Join-Path $currentDir ".ws"
@@ -108,35 +124,35 @@ function Get-GovTargetPhp {
 
 # Smart CLI Auto-Routing berdasarkan .ws file di project
 function artisan {
-    $target = Get-GovTargetPhp
-    Invoke-GovDocker $target "php" "artisan" @args
+    $target = Get-EgovTargetPhp
+    Invoke-EgovDocker $target "php" "artisan" @args
 }
 
 function composer {
-    $target = Get-GovTargetPhp
-    Invoke-GovDocker $target "composer" @args
+    $target = Get-EgovTargetPhp
+    Invoke-EgovDocker $target "composer" @args
 }
 
 # Explicit PHP CLI
-function php74 { Invoke-GovDocker "php74" "php" @args }
-function php80 { Invoke-GovDocker "php80" "php" @args }
-function php81 { Invoke-GovDocker "php81" "php" @args }
-function php82 { Invoke-GovDocker "php82" "php" @args }
-function php83 { Invoke-GovDocker "php83" "php" @args }
+function php74 { Invoke-EgovDocker "php74" "php" @args }
+function php80 { Invoke-EgovDocker "php80" "php" @args }
+function php81 { Invoke-EgovDocker "php81" "php" @args }
+function php82 { Invoke-EgovDocker "php82" "php" @args }
+function php83 { Invoke-EgovDocker "php83" "php" @args }
 
 # Explicit Composer CLI
-function composer74 { Invoke-GovDocker "php74" "composer" @args }
-function composer80 { Invoke-GovDocker "php80" "composer" @args }
-function composer81 { Invoke-GovDocker "php81" "composer" @args }
-function composer82 { Invoke-GovDocker "php82" "composer" @args }
-function composer83 { Invoke-GovDocker "php83" "composer" @args }
+function composer74 { Invoke-EgovDocker "php74" "composer" @args }
+function composer80 { Invoke-EgovDocker "php80" "composer" @args }
+function composer81 { Invoke-EgovDocker "php81" "composer" @args }
+function composer82 { Invoke-EgovDocker "php82" "composer" @args }
+function composer83 { Invoke-EgovDocker "php83" "composer" @args }
 
 # Explicit Artisan CLI
-function artisan74 { Invoke-GovDocker "php74" "php" "artisan" @args }
-function artisan80 { Invoke-GovDocker "php80" "php" "artisan" @args }
-function artisan81 { Invoke-GovDocker "php81" "php" "artisan" @args }
-function artisan82 { Invoke-GovDocker "php82" "php" "artisan" @args }
-function artisan83 { Invoke-GovDocker "php83" "php" "artisan" @args }
+function artisan74 { Invoke-EgovDocker "php74" "php" "artisan" @args }
+function artisan80 { Invoke-EgovDocker "php80" "php" "artisan" @args }
+function artisan81 { Invoke-EgovDocker "php81" "php" "artisan" @args }
+function artisan82 { Invoke-EgovDocker "php82" "php" "artisan" @args }
+function artisan83 { Invoke-EgovDocker "php83" "php" "artisan" @args }
 
-Write-Host "GOV-LAMP PowerShell Helpers loaded!" -ForegroundColor Green
-Write-Host "Commands available: gov, php74..83, composer74..83, artisan74..83, composer, artisan" -ForegroundColor Cyan
+Write-Host "EGOV-LAMP PowerShell Helpers loaded!" -ForegroundColor Green
+Write-Host "Commands available: egov, gov, php74..83, composer74..83, artisan74..83, composer, artisan" -ForegroundColor Cyan
