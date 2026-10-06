@@ -1192,44 +1192,45 @@ foreach ($projects as $p) {
                             <?php foreach ($projects as $p): ?>
                                 <div class="col-md-6 project-item" data-name="<?= strtolower($p['name']) ?>" data-php-port="<?= $p['port'] ?>" data-php-ver="<?= $p['php_version'] ?>" data-ide="<?= htmlspecialchars($p['raw_ide']) ?>" data-has-github="<?= $p['git_info']['is_github'] ? '1' : '0' ?>">
                                     <div class="card project-card h-100 p-3">
-                                        <!-- Top Row: Name, Path & Badges -->
-                                        <div class="d-flex justify-content-between align-items-start mb-2 gap-2">
-                                            <div class="min-w-0 flex-grow-1">
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <span class="project-icon-box">
-                                                        <i class="bi bi-folder2 text-warning"></i>
-                                                    </span>
-                                                    <h6 class="card-title fw-bold mb-0 text-truncate font-monospace" title="<?= htmlspecialchars($p['name']) ?>">
-                                                        <?= htmlspecialchars($p['name']) ?>
-                                                    </h6>
-                                                </div>
-                                                <div class="text-secondary small font-monospace mt-1" style="font-size: 0.72rem;">
-                                                    www/<?= htmlspecialchars($p['name']) ?><?= ($p['type'] === 'Laravel') ? '<span class="text-info opacity-75">/public</span>' : '' ?>
-                                                </div>
+                                        <!-- Top Row: Name & PHP Runtime Badge -->
+                                        <div class="d-flex justify-content-between align-items-center mb-1 gap-2">
+                                            <div class="d-flex align-items-center gap-2 min-w-0 flex-grow-1">
+                                                <span class="project-icon-box flex-shrink-0">
+                                                    <i class="bi bi-folder2 text-warning"></i>
+                                                </span>
+                                                <h6 class="card-title fw-bold mb-0 text-truncate font-monospace" title="<?= htmlspecialchars($p['name']) ?>">
+                                                    <?= htmlspecialchars($p['name']) ?>
+                                                </h6>
                                             </div>
+                                            <span class="badge badge-engine flex-shrink-0" id="port-status-<?= $p['name'] ?>" title="Port PHP <?= $p['port'] ?>">
+                                                <span class="status-dot status-offline" id="card-dot-<?= $p['name'] ?>"></span>PHP <?= $p['php_version'] ?>
+                                            </span>
+                                        </div>
 
-                                            <div class="d-flex gap-1 align-items-center flex-wrap justify-content-end flex-shrink-0">
-                                                <span class="badge badge-engine" id="port-status-<?= $p['name'] ?>" title="Port PHP <?= $p['port'] ?>">
-                                                    <span class="status-dot status-offline" id="card-dot-<?= $p['name'] ?>"></span>PHP <?= $p['php_version'] ?>
+                                        <!-- Sub Row: Path -->
+                                        <div class="text-secondary small font-monospace text-truncate mb-2" style="font-size: 0.72rem;">
+                                            www/<?= htmlspecialchars($p['name']) ?><?= ($p['type'] === 'Laravel') ? '<span class="text-info opacity-75">/public</span>' : '' ?>
+                                        </div>
+
+                                        <!-- Meta Badges: Framework & Git Status -->
+                                        <div class="d-flex gap-1 align-items-center flex-wrap mb-3">
+                                            <?php
+                                                $badge_class = 'badge-framework-native';
+                                                if ($p['type'] === 'Laravel') $badge_class = 'badge-framework-laravel';
+                                                elseif (strpos($p['type'], 'CodeIgniter') !== false) $badge_class = 'badge-framework-ci';
+                                            ?>
+                                            <span class="badge <?= $badge_class ?>">
+                                                <?= $p['type'] ?>
+                                            </span>
+                                            <?php if ($p['git_info']['is_github']): ?>
+                                                <span class="badge badge-git-connected" title="Terhubung ke GitHub: <?= htmlspecialchars($p['git_info']['remote_url']) ?>">
+                                                    <i class="bi bi-github me-1"></i>GitHub
                                                 </span>
-                                                <?php if ($p['git_info']['is_github']): ?>
-                                                    <span class="badge badge-git-connected" title="Terhubung ke GitHub: <?= htmlspecialchars($p['git_info']['remote_url']) ?>">
-                                                        <i class="bi bi-github me-1"></i>GitHub
-                                                    </span>
-                                                <?php else: ?>
-                                                    <span class="badge badge-git-warning" title="<?= $p['git_info']['has_git'] ? 'Belum ada remote origin GitHub' : 'Folder ini belum menjadi git repository' ?>">
-                                                        <i class="bi bi-exclamation-triangle-fill me-1"></i>Belum ke GitHub
-                                                    </span>
-                                                <?php endif; ?>
-                                                <?php
-                                                    $badge_class = 'badge-framework-native';
-                                                    if ($p['type'] === 'Laravel') $badge_class = 'badge-framework-laravel';
-                                                    elseif (strpos($p['type'], 'CodeIgniter') !== false) $badge_class = 'badge-framework-ci';
-                                                ?>
-                                                <span class="badge <?= $badge_class ?>">
-                                                    <?= $p['type'] ?>
+                                            <?php else: ?>
+                                                <span class="badge badge-git-warning" title="<?= $p['git_info']['has_git'] ? 'Belum ada remote origin GitHub' : 'Folder ini belum menjadi git repository' ?>">
+                                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>Belum ke GitHub
                                                 </span>
-                                            </div>
+                                            <?php endif; ?>
                                         </div>
 
                                         <!-- Bottom Action Bar -->
@@ -2501,26 +2502,27 @@ foreach ($projects as $p) {
                 return `
                     <div class="col-md-6 github-repo-item" data-name="${escapeHtml(repo.name.toLowerCase())}" ${isHidden}>
                         <div class="card repo-card h-100 p-3">
-                            <div class="d-flex justify-content-between align-items-start mb-2 gap-2">
-                                <div class="min-w-0 flex-grow-1">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <span class="project-icon-box">
-                                            <i class="bi bi-github text-light"></i>
-                                        </span>
-                                        <h6 class="card-title fw-bold mb-0 text-truncate font-monospace" title="${escapeHtml(repo.name)}">
-                                            ${escapeHtml(repo.name)}
-                                        </h6>
-                                    </div>
-                                    <div class="text-secondary small font-monospace mt-1" style="font-size: 0.72rem;">
-                                        tim-it-diskominfobintan/${escapeHtml(repo.name)}
-                                    </div>
-                                </div>
-                                <div class="d-flex gap-1 align-items-center flex-wrap justify-content-end flex-shrink-0">
-                                    <span class="badge ${repo.is_private ? 'badge-private' : 'badge-public'}" style="font-size: 0.68rem;">
-                                        ${repo.is_private ? '<i class="bi bi-lock-fill me-1"></i>Private' : '<i class="bi bi-globe me-1"></i>Public'}
+                            <!-- Top Row: Name & Visibility Badge -->
+                            <div class="d-flex justify-content-between align-items-center mb-1 gap-2">
+                                <div class="d-flex align-items-center gap-2 min-w-0 flex-grow-1">
+                                    <span class="project-icon-box flex-shrink-0">
+                                        <i class="bi bi-github text-light"></i>
                                     </span>
-                                    ${repo.language ? `<span class="badge bg-secondary bg-opacity-25 border border-secondary text-light font-monospace" style="font-size: 0.68rem;">${escapeHtml(repo.language)}</span>` : ''}
+                                    <h6 class="card-title fw-bold mb-0 text-truncate font-monospace" title="${escapeHtml(repo.name)}">
+                                        ${escapeHtml(repo.name)}
+                                    </h6>
                                 </div>
+                                <span class="badge ${repo.is_private ? 'badge-private' : 'badge-public'} flex-shrink-0" style="font-size: 0.68rem;">
+                                    ${repo.is_private ? '<i class="bi bi-lock-fill me-1"></i>Private' : '<i class="bi bi-globe me-1"></i>Public'}
+                                </span>
+                            </div>
+
+                            <!-- Sub Row: Org Path & Language Badge -->
+                            <div class="d-flex justify-content-between align-items-center mb-2 gap-2">
+                                <div class="text-secondary small font-monospace text-truncate" style="font-size: 0.72rem;">
+                                    tim-it-diskominfobintan/${escapeHtml(repo.name)}
+                                </div>
+                                ${repo.language ? `<span class="badge bg-secondary bg-opacity-25 border border-secondary text-light font-monospace flex-shrink-0" style="font-size: 0.68rem;">${escapeHtml(repo.language)}</span>` : ''}
                             </div>
                             <p class="text-secondary small mb-3 flex-grow-1" style="font-size: 0.78rem; min-height: 2.3rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.45;" title="${escapeHtml(repo.description)}">
                                 ${escapeHtml(repo.description)}
