@@ -10,6 +10,7 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 RED='\033[0;31m'
 BOLD='\033[1m'
+PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
 
 # Auto-detect root directory of egov-lamp
@@ -24,10 +25,13 @@ fi
 
 cd "$ROOT_DIR" || { echo -e "${RED}Direktori egov-lamp tidak ditemukan!${NC}"; exit 1; }
 
-# Handle subcommands langsung dari terminal (contoh: egov clone <nama_repo>)
+# Handle subcommands langsung dari terminal (contoh: egov clone <nama_repo>, egov init <nama_project>)
 if [ "$1" == "clone" ]; then
     shift
     exec bash "$SCRIPT_DIR/clone-project.sh" "$@"
+elif [ "$1" == "init" ]; then
+    shift
+    exec bash "$SCRIPT_DIR/init-project.sh" "$@"
 fi
 
 clear
@@ -45,9 +49,10 @@ echo -e "  ${RED}4)${NC} Matikan Semua Container egov-lamp"
 echo -e "  ${YELLOW}5)${NC} Cek Status Container Aktif"
 echo -e "  ${BLUE}6)${NC} Perbaiki Permission Folder (fix-perms)"
 echo -e "  ${CYAN}7)${NC} Clone Project dari GitHub (tim-it-diskominfobintan)"
+echo -e "  ${PURPLE}8)${NC} Inisialisasi Project Baru (Template core-laravel)"
 echo -e "  ${BOLD}0)${NC} Keluar"
 echo ""
-read -p "Masukkan pilihan [0-7]: " ACTION_CHOICE
+read -p "Masukkan pilihan [0-8]: " ACTION_CHOICE
 
 case $ACTION_CHOICE in
     1)
@@ -147,6 +152,9 @@ case $ACTION_CHOICE in
         ;;
     7)
         bash "$SCRIPT_DIR/clone-project.sh"
+        ;;
+    8)
+        bash "$SCRIPT_DIR/init-project.sh"
         ;;
     0)
         exit 0

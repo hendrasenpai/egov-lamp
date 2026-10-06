@@ -58,6 +58,123 @@ function ensure_code_workspace($project) {
     return true;
 }
 
+// Helper untuk membuat database MariaDB secara otomatis jika belum ada
+function create_mariadb_database($db_name) {
+    $clean_db = preg_replace('/[^a-zA-Z0-9_]/', '_', $db_name);
+    try {
+        $pdo = new PDO("mysql:host=database;port=3306", "root", "tiger", [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_TIMEOUT => 4
+        ]);
+        $pdo->exec("CREATE DATABASE IF NOT EXISTS `{$clean_db}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
+        return true;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+// Helper untuk mendeteksi informasi Git dan keterhubungan dengan GitHub
+function get_project_git_info($dir) {
+    $has_git = is_dir("$dir/.git");
+    $remote_url = '';
+    $is_github = false;
+
+    if ($has_git) {
+        $git_config = "$dir/.git/config";
+        if (file_exists($git_config)) {
+            $content = @file_get_contents($git_config);
+            if ($content && preg_match('/\[remote\s+"origin"\][^\[]*?url\s*=\s*([^\r\n]+)/s', $content, $matches)) {
+                $remote_url = trim($matches[1]);
+                if (stripos($remote_url, 'github.com') !== false) {
+                    $is_github = true;
+                }
+            }
+        }
+    }
+
+    return [
+        'has_git' => $has_git,
+        'remote_url' => $remote_url,
+        'is_github' => $is_github
+    ];
+}
+
+// Helper otomatisasi Laravel siap deploy (Composer, .env, DB, key, storage, migrate/seed)
+function run_laravel_auto_setup($dir, $repo, $options, &$steps = []) {
+    @set_time_limit(300);
+
+    // 1. Setup .env & Database MariaDB
+    if (!empty($options['env_db'])) {
+        $clean_db = preg_replace('/[^a-zA-Z0-9_]/', '_', $repo);
+        if (file_exists("$dir/.env.example") && !file_exists("$dir/.env")) {
+            $env = @file_get_contents("$dir/.env.example");
+            if ($env) {
+                $env = preg_replace('/^DB_CONNECTION=.*/m', 'DB_CONNECTION=mysql', $env);
+                $env = preg_replace('/^DB_HOST=.*/m', 'DB_HOST=database', $env);
+                $env = preg_replace('/^DB_PORT=.*/m', 'DB_PORT=3306', $env);
+                $env = preg_replace('/^DB_USERNAME=.*/m', 'DB_USERNAME=root', $env);
+                $env = preg_replace('/^DB_PASSWORD=.*/m', 'DB_PASSWORD=tiger', $env);
+                $env = preg_replace('/^DB_DATABASE=.*/m', "DB_DATABASE={$clean_db}", $env);
+                $env = preg_replace('/^REDIS_HOST=.*/m', 'REDIS_HOST=redis', $env);
+                @file_put_contents("$dir/.env", $env);
+            }
+        }
+        $db_ok = create_mariadb_database($repo);
+        $steps[] = [
+            'step' => 'Environment & Database',
+            'status' => $db_ok ? 'ok' : 'warn',
+            'message' => $db_ok ? "Database '{$clean_db}' dibuat di MariaDB & .env disiapkan." : "File .env disiapkan (koneksi MariaDB timeout)."
+        ];
+    }
+
+    // 2. Fix Permissions
+    @chmod($dir, 0777);
+    if (is_dir("$dir/storage")) {
+        exec("chmod -R 777 " . escapeshellarg("$dir/storage") . " 2>/dev/null");
+    }
+    if (is_dir("$dir/bootstrap/cache")) {
+        exec("chmod -R 777 " . escapeshellarg("$dir/bootstrap/cache") . " 2>/dev/null");
+    }
+
+    // 3. Composer Install
+    if (!empty($options['composer']) && file_exists("$dir/composer.json")) {
+        $cmd = "cd " . escapeshellarg($dir) . " && export COMPOSER_ALLOW_SUPERUSER=1 && composer install --no-interaction --prefer-dist --optimize-autoloader 2>&1";
+        $comp_out = [];
+        $comp_ret = 0;
+        exec($cmd, $comp_out, $comp_ret);
+        $steps[] = [
+            'step' => 'Composer Install',
+            'status' => ($comp_ret === 0) ? 'ok' : 'warn',
+            'message' => ($comp_ret === 0) ? "Dependencies vendor berhasil diinstall." : "Composer install selesai dengan catatan: " . (end($comp_out) ?: 'warning')
+        ];
+    }
+
+    // 4. Artisan commands (Key & Storage)
+    if (file_exists("$dir/artisan")) {
+        if (!empty($options['key_storage'])) {
+            exec("php " . escapeshellarg("$dir/artisan") . " key:generate --force 2>&1");
+            exec("php " . escapeshellarg("$dir/artisan") . " storage:link 2>&1");
+            $steps[] = [
+                'step' => 'App Key & Storage Link',
+                'status' => 'ok',
+                'message' => 'Artisan key:generate & storage:link berhasil.'
+            ];
+        }
+
+        // 5. Migrate & Seed Database
+        if (!empty($options['migrate_seed'])) {
+            $mig_out = [];
+            $mig_ret = 0;
+            exec("php " . escapeshellarg("$dir/artisan") . " migrate:fresh --seed --force 2>&1", $mig_out, $mig_ret);
+            $steps[] = [
+                'step' => 'Migrate & Seed Database',
+                'status' => ($mig_ret === 0) ? 'ok' : 'warn',
+                'message' => ($mig_ret === 0) ? 'Migrasi tabel & seeder database berhasil dijalankan.' : 'Migrasi selesai: ' . (end($mig_out) ?: 'warning')
+            ];
+        }
+    }
+}
+
 // 2. Handle API Ensure Workspace File (.code-workspace)
 if (isset($_GET['action']) && $_GET['action'] === 'ensure_workspace') {
     if (ob_get_level()) ob_clean();
@@ -68,7 +185,112 @@ if (isset($_GET['action']) && $_GET['action'] === 'ensure_workspace') {
     exit;
 }
 
-// 2. Handle API Get GitHub Repositories
+// 3. Handle API Inisialisasi Project Baru dari Template core-laravel
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'init_project') {
+    if (ob_get_level()) ob_clean();
+    header('Content-Type: application/json');
+    @set_time_limit(300);
+
+    $name = preg_replace('/[^a-zA-Z0-9_\-]/', '', $_POST['name'] ?? '');
+    $remote_url = trim($_POST['remote_url'] ?? '');
+    $php = preg_replace('/[^0-9.]/', '', $_POST['php'] ?? '8.2');
+    $config = get_github_config();
+
+    if (!$name) {
+        echo json_encode(['success' => false, 'message' => 'Nama project tidak valid.']);
+        exit;
+    }
+
+    if (is_dir("./$name")) {
+        echo json_encode(['success' => false, 'message' => "Folder www/{$name} sudah ada di lokal!"]);
+        exit;
+    }
+
+    // Template core-laravel
+    if (!empty($config['token'])) {
+        $template_url = "https://oauth2:{$config['token']}@github.com/{$config['org']}/core-laravel.git";
+    } else {
+        $template_url = "https://github.com/{$config['org']}/core-laravel.git";
+    }
+
+    $output = [];
+    $return_var = 0;
+    exec("git clone " . escapeshellarg($template_url) . " " . escapeshellarg("./$name") . " 2>&1", $output, $return_var);
+
+    if ($return_var !== 0) {
+        $msg = implode("\n", $output);
+        if (!empty($config['token'])) {
+            $msg = str_replace($config['token'], '***', $msg);
+        }
+        echo json_encode([
+            'success' => false, 
+            'message' => "Gagal meng-clone template core-laravel: $msg. Pastikan GitHub Token sudah diatur untuk mengakses repository private organisasi."
+        ]);
+        exit;
+    }
+
+    $steps = [];
+    $steps[] = [
+        'step' => 'Clone Template Core Laravel',
+        'status' => 'ok',
+        'message' => 'Template core-laravel berhasil di-clone.'
+    ];
+
+    // Reset Git: rm -rf .git && git init -b main
+    $opt_reset_git = !isset($_POST['opt_reset_git']) || $_POST['opt_reset_git'] === '1' || $_POST['opt_reset_git'] === 'true';
+    if ($opt_reset_git) {
+        exec("rm -rf " . escapeshellarg("./$name/.git") . " && git -C " . escapeshellarg("./$name") . " init -b main 2>&1");
+        $git_msg = "Git direset ke repository baru (branch main).";
+        if (!empty($remote_url)) {
+            exec("git -C " . escapeshellarg("./$name") . " remote add origin " . escapeshellarg($remote_url) . " 2>&1");
+            $git_msg .= " Remote origin diset ke: $remote_url";
+        }
+        $steps[] = [
+            'step' => 'Git Reset & Remote',
+            'status' => 'ok',
+            'message' => $git_msg
+        ];
+    }
+
+    // Set versi PHP di .ws
+    $content = "php={$php}\ntype=laravel\nentry=public\nide=auto\n";
+    @file_put_contents("./$name/.ws", $content);
+    @chmod("./$name/.ws", 0666);
+    ensure_code_workspace($name);
+
+    // Auto setup
+    $options = [
+        'env_db' => !isset($_POST['opt_env_db']) || $_POST['opt_env_db'] === '1' || $_POST['opt_env_db'] === 'true',
+        'composer' => !isset($_POST['opt_composer']) || $_POST['opt_composer'] === '1' || $_POST['opt_composer'] === 'true',
+        'key_storage' => !isset($_POST['opt_key_storage']) || $_POST['opt_key_storage'] === '1' || $_POST['opt_key_storage'] === 'true',
+        'migrate_seed' => !isset($_POST['opt_migrate_seed']) || $_POST['opt_migrate_seed'] === '1' || $_POST['opt_migrate_seed'] === 'true',
+    ];
+    run_laravel_auto_setup("./$name", $name, $options, $steps);
+
+    // Initial commit jika git direset
+    $opt_commit = !isset($_POST['opt_initial_commit']) || $_POST['opt_initial_commit'] === '1' || $_POST['opt_initial_commit'] === 'true';
+    if ($opt_reset_git && $opt_commit) {
+        exec("git -C " . escapeshellarg("./$name") . " add . && git -C " . escapeshellarg("./$name") . " commit -m " . escapeshellarg("chore: initialize project from core-laravel template") . " 2>&1");
+        $steps[] = [
+            'step' => 'Initial Git Commit',
+            'status' => 'ok',
+            'message' => 'Initial commit dibuat.'
+        ];
+    }
+
+    @unlink('./.github_cache.json');
+
+    echo json_encode([
+        'success' => true,
+        'project' => $name,
+        'php' => $php,
+        'message' => "Project {$name} berhasil diinisialisasi dari core-laravel!",
+        'steps' => $steps
+    ]);
+    exit;
+}
+
+// 4. Handle API Get GitHub Repositories
 if (isset($_GET['action']) && $_GET['action'] === 'get_github_repos') {
     if (ob_get_level()) ob_clean();
     header('Content-Type: application/json');
@@ -162,10 +384,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_github_repos') {
     exit;
 }
 
-// 3. Handle API Clone Repository
+// 5. Handle API Clone Repository
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'clone_repo') {
     if (ob_get_level()) ob_clean();
     header('Content-Type: application/json');
+    @set_time_limit(300);
+
     $repo = preg_replace('/[^a-zA-Z0-9_\-]/', '', $_POST['repo'] ?? '');
     $php = preg_replace('/[^0-9.]/', '', $_POST['php'] ?? '8.2');
     $config = get_github_config();
@@ -199,40 +423,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         exit;
     }
 
+    $steps = [];
+    $steps[] = [
+        'step' => 'Git Clone',
+        'status' => 'ok',
+        'message' => "Repository {$repo} berhasil di-clone."
+    ];
+
     // Set versi PHP di .ws
     $content = "php={$php}\ntype=auto\nentry=auto\n";
     @file_put_contents("./$repo/.ws", $content);
     @chmod("./$repo/.ws", 0666);
     ensure_code_workspace($repo);
 
-    // Setup .env jika ada .env.example
-    if (file_exists("./$repo/.env.example") && !file_exists("./$repo/.env")) {
-        $env = @file_get_contents("./$repo/.env.example");
-        if ($env) {
-            $env = preg_replace('/^DB_HOST=.*/m', 'DB_HOST=database', $env);
-            $env = preg_replace('/^DB_PORT=.*/m', 'DB_PORT=3306', $env);
-            $env = preg_replace('/^DB_USERNAME=.*/m', 'DB_USERNAME=root', $env);
-            $env = preg_replace('/^DB_PASSWORD=.*/m', 'DB_PASSWORD=tiger', $env);
-            $env = preg_replace('/^DB_DATABASE=.*/m', "DB_DATABASE={$repo}", $env);
-            $env = preg_replace('/^REDIS_HOST=.*/m', 'REDIS_HOST=redis', $env);
-            @file_put_contents("./$repo/.env", $env);
-        }
-    }
-
-    // Fix permissions
-    @chmod("./$repo", 0777);
-    if (is_dir("./$repo/storage")) {
-        exec("chmod -R 777 " . escapeshellarg("./$repo/storage") . " 2>/dev/null");
-    }
-    if (is_dir("./$repo/bootstrap/cache")) {
-        exec("chmod -R 777 " . escapeshellarg("./$repo/bootstrap/cache") . " 2>/dev/null");
-    }
+    // Auto setup
+    $options = [
+        'env_db' => !isset($_POST['opt_env_db']) || $_POST['opt_env_db'] === '1' || $_POST['opt_env_db'] === 'true',
+        'composer' => !isset($_POST['opt_composer']) || $_POST['opt_composer'] === '1' || $_POST['opt_composer'] === 'true',
+        'key_storage' => !isset($_POST['opt_key_storage']) || $_POST['opt_key_storage'] === '1' || $_POST['opt_key_storage'] === 'true',
+        'migrate_seed' => !isset($_POST['opt_migrate_seed']) || $_POST['opt_migrate_seed'] === '1' || $_POST['opt_migrate_seed'] === 'true',
+    ];
+    run_laravel_auto_setup("./$repo", $repo, $options, $steps);
 
     @unlink('./.github_cache.json');
 
     echo json_encode([
         'success' => true,
-        'message' => "Project {$repo} berhasil di-clone dengan PHP {$php}!"
+        'project' => $repo,
+        'php' => $php,
+        'message' => "Project {$repo} berhasil di-clone dan disiapkan!",
+        'steps' => $steps
     ]);
     exit;
 }
@@ -320,6 +540,7 @@ foreach ($all_items as $item) {
         // Tentukan Port Target
         $target_port = $php_port_map[$custom_php] ?? '8074';
         $full_link = "http://localhost:{$target_port}/{$subpath}";
+        $git_info = get_project_git_info($item);
 
         $projects[] = [
             'name' => $item,
@@ -331,10 +552,18 @@ foreach ($all_items as $item) {
             'has_custom' => $has_custom_ws,
             'raw_type' => $custom_type,
             'raw_entry' => $custom_entry,
-            'raw_ide' => $custom_ide
+            'raw_ide' => $custom_ide,
+            'git_info' => $git_info
         ];
     } elseif (pathinfo($item, PATHINFO_EXTENSION) === 'php') {
         $php_files[] = $item;
+    }
+}
+
+$unconnected_github = 0;
+foreach ($projects as $p) {
+    if (!$p['git_info']['is_github']) {
+        $unconnected_github++;
     }
 }
 ?>
@@ -465,8 +694,11 @@ foreach ($all_items as $item) {
                         </li>
                     </ul>
 
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="input-group input-group-sm" style="max-width: 230px;">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <button type="button" class="btn btn-sm btn-primary py-1 px-3 d-flex align-items-center shadow-sm" onclick="openInitProjectModal()" title="Inisialisasi Project Baru (Template core-laravel)">
+                            <i class="bi bi-plus-circle-fill me-1"></i><span>Project Baru (Core Laravel)</span>
+                        </button>
+                        <div class="input-group input-group-sm" style="max-width: 200px;">
                             <span class="input-group-text bg-transparent border-secondary border-opacity-25 text-secondary"><i class="bi bi-search"></i></span>
                             <input type="text" id="projectSearch" class="form-control search-box" placeholder="Cari project...">
                         </div>
@@ -486,18 +718,39 @@ foreach ($all_items as $item) {
                 <div class="tab-content" id="projectTabsContent">
                     <!-- Tab Pane 1: Local Projects -->
                     <div class="tab-pane fade show active" id="pane-local" role="tabpanel">
+                        <?php if ($unconnected_github > 0): ?>
+                            <div class="alert alert-dark border-warning border-opacity-50 d-flex flex-wrap align-items-center justify-content-between py-2 px-3 mb-3">
+                                <div class="small">
+                                    <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+                                    <span>Terdapat <strong><?= $unconnected_github ?></strong> project lokal yang <strong>belum terhubung ke GitHub</strong>.</span>
+                                </div>
+                                <button class="btn btn-xs btn-outline-warning py-0 px-2 mt-1 mt-sm-0" style="font-size: 0.75rem;" id="btnToggleUnconnectedGit" onclick="toggleFilterUnconnectedGit()">
+                                    <i class="bi bi-funnel me-1"></i><span id="btnFilterGitLabel">Tampilkan Yang Belum Terhubung</span>
+                                </button>
+                            </div>
+                        <?php endif; ?>
+
                         <div class="row g-3" id="projectGrid">
                             <?php foreach ($projects as $p): ?>
-                                <div class="col-md-6 project-item" data-name="<?= strtolower($p['name']) ?>" data-php-port="<?= $p['port'] ?>" data-php-ver="<?= $p['php_version'] ?>" data-ide="<?= htmlspecialchars($p['raw_ide']) ?>">
+                                <div class="col-md-6 project-item" data-name="<?= strtolower($p['name']) ?>" data-php-port="<?= $p['port'] ?>" data-php-ver="<?= $p['php_version'] ?>" data-ide="<?= htmlspecialchars($p['raw_ide']) ?>" data-has-github="<?= $p['git_info']['is_github'] ? '1' : '0' ?>">
                                     <div class="card project-card h-100 p-3">
                                         <div class="d-flex justify-content-between align-items-start mb-2">
-                                            <h6 class="card-title fw-bold mb-0 text-truncate font-monospace" style="max-width: 55%;">
+                                            <h6 class="card-title fw-bold mb-0 text-truncate font-monospace" style="max-width: 50%;" title="<?= htmlspecialchars($p['name']) ?>">
                                                 <?= htmlspecialchars($p['name']) ?>
                                             </h6>
                                             <div class="d-flex gap-1 align-items-center flex-wrap justify-content-end">
                                                 <span class="badge bg-dark border border-secondary text-info font-monospace" style="font-size: 0.68rem;" id="port-status-<?= $p['name'] ?>" title="Port PHP <?= $p['port'] ?>">
                                                     <span class="status-dot status-offline" id="card-dot-<?= $p['name'] ?>"></span>PHP <?= $p['php_version'] ?>
                                                 </span>
+                                                <?php if ($p['git_info']['is_github']): ?>
+                                                    <span class="badge bg-dark border border-secondary text-secondary" style="font-size: 0.68rem;" title="Terhubung ke GitHub: <?= htmlspecialchars($p['git_info']['remote_url']) ?>">
+                                                        <i class="bi bi-github text-light me-1"></i>GitHub
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="badge bg-warning bg-opacity-10 border border-warning text-warning" style="font-size: 0.68rem;" title="<?= $p['git_info']['has_git'] ? 'Belum ada remote origin GitHub' : 'Folder ini belum menjadi git repository' ?>">
+                                                        <i class="bi bi-exclamation-triangle-fill me-1"></i>Belum ke GitHub
+                                                    </span>
+                                                <?php endif; ?>
                                                 <?php
                                                     $badge_class = 'bg-secondary';
                                                     if ($p['type'] === 'Laravel') $badge_class = 'badge-laravel';
@@ -511,7 +764,7 @@ foreach ($all_items as $item) {
                                         <div class="mt-auto d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
                                             <div class="d-flex gap-1 flex-wrap">
                                                 <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" 
-                                                        onclick="openSettingModal('<?= $p['name'] ?>', '<?= $p['php_version'] ?>', '<?= $p['raw_type'] ?>', '<?= $p['raw_entry'] ?>', '<?= $p['raw_ide'] ?>')">
+                                                        onclick="openSettingModal('<?= $p['name'] ?>', '<?= $p['php_version'] ?>', '<?= $p['raw_type'] ?>', '<?= $p['raw_entry'] ?>', '<?= $p['raw_ide'] ?>', <?= $p['git_info']['has_git'] ? 'true' : 'false' ?>, <?= $p['git_info']['is_github'] ? 'true' : 'false' ?>, '<?= htmlspecialchars(addslashes($p['git_info']['remote_url'])) ?>')">
                                                     <i class="bi bi-gear me-1"></i>Setting
                                                 </button>
                                                 <button type="button" class="btn btn-sm btn-outline-info py-0 px-2 btn-ide-vscode" style="font-size: 0.75rem;" title="Buka di VS Code" 
@@ -579,6 +832,22 @@ foreach ($all_items as $item) {
 
             <!-- Right Column: Shortcuts & Quick Tools -->
             <div class="col-lg-4">
+                <!-- Featured Quick Action: Init Core Laravel Project -->
+                <div class="card sidebar-card p-3 mb-3 border-primary border-opacity-50">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="fw-bold text-uppercase text-info mb-0" style="font-size: 0.8rem; letter-spacing: 0.05rem;">
+                            <i class="bi bi-rocket-takeoff-fill me-1 text-warning"></i>Project Baru (Laravel)
+                        </h6>
+                        <span class="badge bg-primary text-white" style="font-size: 0.65rem;">Template Resmi</span>
+                    </div>
+                    <p class="text-secondary small mb-3" style="font-size: 0.78rem;">
+                        Standard Diskominfo: clone otomatis dari <code>core-laravel</code>, reset git, database lokal, key:generate & migrate.
+                    </p>
+                    <button type="button" class="btn btn-primary btn-sm py-2 w-100 fw-bold shadow-sm" onclick="openInitProjectModal()">
+                        <i class="bi bi-plus-circle-fill me-1"></i> Inisialisasi Project Baru
+                    </button>
+                </div>
+
                 <div class="card sidebar-card p-3 mb-3">
                     <h6 class="fw-bold text-uppercase text-secondary mb-3" style="font-size: 0.8rem; letter-spacing: 0.05rem;">
                         <i class="bi bi-lightning-charge-fill me-1 text-warning"></i>Shortcut & Database
@@ -673,6 +942,16 @@ foreach ($all_items as $item) {
                                 <option value="both">Paksa Tampilkan Keduanya</option>
                                 <option value="none">Sembunyikan Semua Tombol IDE</option>
                             </select>
+                        </div>
+
+                        <div class="mb-2 pt-3 border-top border-secondary border-opacity-50" id="settingGitStatusSection">
+                            <label class="form-label text-secondary small fw-bold d-flex justify-content-between align-items-center mb-2">
+                                <span><i class="bi bi-github me-1"></i>STATUS REPOSITORI GITHUB</span>
+                                <span id="settingGitBadge" class="badge bg-secondary">...</span>
+                            </label>
+                            <div id="settingGitDetails" class="p-2 rounded bg-black bg-opacity-40 border border-secondary border-opacity-50 small">
+                                <!-- Dinamis diisi oleh JS -->
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -806,9 +1085,101 @@ foreach ($all_items as $item) {
         </div>
     </div>
 
+    <!-- Modal Inisialisasi Project Baru (Template core-laravel) -->
+    <div class="modal fade" id="initProjectModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content bg-dark border-secondary text-light">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title">
+                        <i class="bi bi-rocket-takeoff-fill me-2 text-info"></i>Inisialisasi Project Baru <span class="badge bg-primary ms-1" style="font-size: 0.7rem;">core-laravel</span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-secondary small mb-3">
+                        Membuat project Laravel standar Diskominfo Bintan menggunakan template repository resmi <a href="https://github.com/tim-it-diskominfobintan/core-laravel" target="_blank" class="text-info text-decoration-none"><code>tim-it-diskominfobintan/core-laravel</code></a>.
+                    </p>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-7">
+                            <label class="form-label text-secondary small fw-bold">NAMA PROJECT (NAMA FOLDER LOKAL)</label>
+                            <input type="text" class="form-control bg-dark text-light border-secondary font-monospace" id="initProjectName" placeholder="contoh: e-surat, simpeg, srikandi">
+                            <div class="form-text text-secondary" style="font-size: 0.72rem;">Hanya huruf, angka, strip (-), dan garis bawah (_). Folder: <code>www/&lt;nama&gt;</code></div>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label text-secondary small fw-bold">VERSI PHP</label>
+                            <select class="form-select bg-dark text-light border-secondary" id="initProjectPhp">
+                                <option value="8.3" selected>PHP 8.3 (Port 8083) - Rekomendasi</option>
+                                <option value="8.2">PHP 8.2 (Port 8082)</option>
+                                <option value="8.1">PHP 8.1 (Port 8081)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-bold">REMOTE GITHUB BARU (OPSIONAL)</label>
+                        <input type="text" class="form-control bg-dark text-light border-secondary font-monospace" id="initProjectRemote" placeholder="https://github.com/tim-it-diskominfobintan/<nama-repo>.git">
+                        <div class="form-text text-secondary" style="font-size: 0.72rem;">Jika diisi, remote git origin project ini akan langsung diarahkan ke repo baru tersebut.</div>
+                    </div>
+
+                    <div class="card bg-black bg-opacity-40 border-secondary p-3 mb-3">
+                        <h6 class="text-uppercase text-secondary fw-bold small mb-2"><i class="bi bi-gear-wide-connected me-1 text-warning"></i>Otomatisasi Siap Pakai (Auto Deploy Pipeline)</h6>
+                        <div class="row g-2 small">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="initOptResetGit" checked>
+                                    <label class="form-check-label" for="initOptResetGit">Reset Git History (<code>rm -rf .git && git init</code>)</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="initOptEnvDb" checked>
+                                    <label class="form-check-label" for="initOptEnvDb">Buat <code>.env</code> & Database MariaDB</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="initOptComposer" checked>
+                                    <label class="form-check-label" for="initOptComposer">Jalankan <code>composer install</code></label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="initOptKeyStorage" checked>
+                                    <label class="form-check-label" for="initOptKeyStorage"><code>key:generate</code> & <code>storage:link</code></label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="initOptMigrateSeed" checked>
+                                    <label class="form-check-label" for="initOptMigrateSeed">Migrasi Database (<code>migrate:fresh --seed</code>)</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="initOptCommit" checked>
+                                    <label class="form-check-label" for="initOptCommit">Initial Git Commit ("chore: initialize...")</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="initProjectAlert" class="alert d-none small mb-2 py-2"></div>
+                    <div id="initProjectSteps" class="p-2 rounded bg-black bg-opacity-60 border border-secondary border-opacity-50 small font-monospace d-none" style="max-height: 180px; overflow-y: auto;"></div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btnCancelInit">Batal</button>
+                    <button type="button" class="btn btn-primary" id="btnConfirmInit" onclick="executeInitProject()">
+                        <i class="bi bi-rocket-takeoff-fill me-1"></i> Inisialisasi Project Sekarang
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Clone Repo -->
     <div class="modal fade" id="cloneModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content bg-dark border-secondary text-light">
                 <div class="modal-header border-secondary">
                     <h5 class="modal-title"><i class="bi bi-cloud-arrow-down-fill me-2 text-info"></i>Clone Project: <span id="cloneModalRepoName" class="text-warning font-monospace"></span></h5>
@@ -818,7 +1189,7 @@ foreach ($all_items as $item) {
                     <input type="hidden" id="cloneRepoName">
                     <input type="hidden" id="cloneRepoUrl">
                     <p class="text-secondary small mb-3">
-                        Project akan di-clone langsung ke folder <code>www/<span id="cloneTargetFolder"></span></code> dan dikonfigurasi otomatis.
+                        Project akan di-clone langsung ke folder <code>www/<span id="cloneTargetFolder"></span></code> dan disiapkan otomatis.
                     </p>
                     <div class="mb-3">
                         <label class="form-label text-secondary small fw-bold">PILIH VERSI PHP AWAL</label>
@@ -831,12 +1202,44 @@ foreach ($all_items as $item) {
                         </select>
                         <small class="text-muted">Versi PHP bisa diubah kapan saja di tombol 'Setting'.</small>
                     </div>
-                    <div id="cloneAlert" class="alert d-none small mb-0 py-2"></div>
+
+                    <div class="card bg-black bg-opacity-40 border-secondary p-3 mb-3">
+                        <h6 class="text-uppercase text-secondary fw-bold small mb-2"><i class="bi bi-magic me-1 text-warning"></i>Otomatisasi Siap Deploy (Auto Deploy Pipeline)</h6>
+                        <div class="row g-2 small">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="cloneOptEnvDb" checked>
+                                    <label class="form-check-label" for="cloneOptEnvDb">Buat <code>.env</code> & Database MariaDB</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="cloneOptComposer" checked>
+                                    <label class="form-check-label" for="cloneOptComposer">Jalankan <code>composer install</code></label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="cloneOptKeyStorage" checked>
+                                    <label class="form-check-label" for="cloneOptKeyStorage"><code>key:generate</code> & <code>storage:link</code></label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="cloneOptMigrateSeed" checked>
+                                    <label class="form-check-label" for="cloneOptMigrateSeed">Migrasi Database (<code>migrate:fresh --seed</code>)</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="cloneAlert" class="alert d-none small mb-2 py-2"></div>
+                    <div id="cloneSteps" class="p-2 rounded bg-black bg-opacity-60 border border-secondary border-opacity-50 small font-monospace d-none" style="max-height: 180px; overflow-y: auto;"></div>
                 </div>
                 <div class="modal-footer border-secondary">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btnCancelClone">Batal</button>
                     <button type="button" class="btn btn-success" id="btnConfirmClone" onclick="executeClone()">
-                        <i class="bi bi-cloud-download me-1"></i> Mulai Clone
+                        <i class="bi bi-cloud-download me-1"></i> Mulai Clone & Deploy
                     </button>
                 </div>
             </div>
@@ -965,14 +1368,37 @@ foreach ($all_items as $item) {
             return true;
         }
         
-        // Enhanced Search Filter (Local Projects & GitHub Repos)
-        document.getElementById('projectSearch').addEventListener('input', function(e) {
-            const query = e.target.value.toLowerCase().trim();
-            // Filter Local Projects
+        // Enhanced Search & Filter (Local Projects & GitHub Repos)
+        let filterUnconnectedActive = false;
+
+        function applyLocalProjectFilters() {
+            const query = (document.getElementById('projectSearch').value || '').toLowerCase().trim();
             document.querySelectorAll('.project-item').forEach(item => {
                 const name = item.getAttribute('data-name') || '';
-                item.style.display = name.includes(query) ? '' : 'none';
+                const hasGithub = item.getAttribute('data-has-github') === '1';
+                const matchQuery = name.includes(query);
+                const matchGit = !filterUnconnectedActive || !hasGithub;
+                item.style.display = (matchQuery && matchGit) ? '' : 'none';
             });
+        }
+
+        function toggleFilterUnconnectedGit() {
+            filterUnconnectedActive = !filterUnconnectedActive;
+            const label = document.getElementById('btnFilterGitLabel');
+            const btn = document.getElementById('btnToggleUnconnectedGit');
+            if (label) {
+                label.textContent = filterUnconnectedActive ? 'Tampilkan Semua Project' : 'Tampilkan Yang Belum Terhubung';
+            }
+            if (btn) {
+                btn.classList.toggle('btn-warning', filterUnconnectedActive);
+                btn.classList.toggle('btn-outline-warning', !filterUnconnectedActive);
+            }
+            applyLocalProjectFilters();
+        }
+
+        document.getElementById('projectSearch').addEventListener('input', function(e) {
+            applyLocalProjectFilters();
+            const query = e.target.value.toLowerCase().trim();
             // Filter GitHub Repos
             document.querySelectorAll('.github-repo-item').forEach(item => {
                 const name = item.getAttribute('data-name') || '';
@@ -1002,15 +1428,55 @@ foreach ($all_items as $item) {
                 .replace(/'/g, '&#039;');
         }
 
+        function copyGitInitCmd(cmd) {
+            copyText(cmd);
+            showToast('<i class="bi bi-clipboard-check text-warning me-2"></i>Perintah Git disalin ke clipboard!');
+        }
+
         // Modal Setting Logic
         let settingModalInstance = null;
-        function openSettingModal(project, php, type, entry, ide) {
+        function openSettingModal(project, php, type, entry, ide, hasGit = false, isGithub = false, remoteUrl = '') {
             document.getElementById('modalProjectName').textContent = project;
             document.getElementById('inputProject').value = project;
             document.getElementById('selectPhp').value = php || '7.4';
             document.getElementById('selectType').value = type || 'auto';
             document.getElementById('selectEntry').value = entry || 'auto';
             document.getElementById('selectIde').value = ide || 'auto';
+
+            const badge = document.getElementById('settingGitBadge');
+            const details = document.getElementById('settingGitDetails');
+            if (badge && details) {
+                if (isGithub) {
+                    badge.className = 'badge bg-success';
+                    badge.innerHTML = '<i class="bi bi-check-circle me-1"></i>Terhubung';
+                    details.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-truncate font-monospace text-info me-2 small" title="${escapeHtml(remoteUrl)}">
+                                <i class="bi bi-link-45deg me-1"></i>${escapeHtml(remoteUrl)}
+                            </span>
+                            <a href="${escapeHtml(remoteUrl.replace(/\.git$/, ''))}" target="_blank" class="btn btn-sm btn-outline-info py-0 px-2 text-nowrap" style="font-size: 0.72rem;">
+                                <i class="bi bi-box-arrow-up-right me-1"></i>Buka Repo
+                            </a>
+                        </div>
+                    `;
+                } else {
+                    badge.className = 'badge bg-warning text-dark';
+                    badge.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i>Belum Terhubung';
+                    const gitCmd = hasGit 
+                        ? `git remote add origin https://github.com/tim-it-diskominfobintan/${project}.git && git branch -M main && git push -u origin main`
+                        : `git init -b main && git add . && git commit -m "chore: initial commit" && git remote add origin https://github.com/tim-it-diskominfobintan/${project}.git && git push -u origin main`;
+                    details.innerHTML = `
+                        <div class="text-warning mb-1 small"><i class="bi bi-info-circle me-1"></i>${hasGit ? 'Repository lokal belum terhubung ke remote GitHub tim.' : 'Folder ini belum menjadi git repository.'}</div>
+                        <div class="text-secondary small mb-1">Hubungkan repository dengan perintah:</div>
+                        <div class="d-flex justify-content-between align-items-center bg-dark p-2 rounded border border-secondary border-opacity-50">
+                            <pre class="mb-0 text-light font-monospace small" style="font-size: 0.7rem; white-space: pre-wrap; word-break: break-all;">${escapeHtml(gitCmd)}</pre>
+                            <button type="button" class="btn btn-sm btn-outline-warning ms-2 py-0 px-2 text-nowrap" style="font-size: 0.72rem;" onclick="copyGitInitCmd('${escapeHtml(gitCmd.replace(/'/g, "\\'"))}')">
+                                <i class="bi bi-clipboard me-1"></i>Salin
+                            </button>
+                        </div>
+                    `;
+                }
+            }
 
             if (!settingModalInstance) {
                 settingModalInstance = new bootstrap.Modal(document.getElementById('settingModal'));
@@ -1511,17 +1977,128 @@ foreach ($all_items as $item) {
             }).join('');
         }
 
+        // Init Project (core-laravel template) Modal & Execution
+        let initProjectModalInstance = null;
+        function openInitProjectModal() {
+            document.getElementById('initProjectName').value = '';
+            document.getElementById('initProjectRemote').value = '';
+            document.getElementById('initProjectAlert').className = 'alert d-none small mb-2 py-2';
+            document.getElementById('initProjectAlert').innerHTML = '';
+            document.getElementById('initProjectSteps').className = 'p-2 rounded bg-black bg-opacity-60 border border-secondary border-opacity-50 small font-monospace d-none';
+            document.getElementById('initProjectSteps').innerHTML = '';
+
+            const btnConfirm = document.getElementById('btnConfirmInit');
+            const btnCancel = document.getElementById('btnCancelInit');
+            btnConfirm.disabled = false;
+            btnCancel.disabled = false;
+            btnConfirm.innerHTML = '<i class="bi bi-rocket-takeoff-fill me-1"></i> Inisialisasi Project Sekarang';
+
+            if (!initProjectModalInstance) {
+                initProjectModalInstance = new bootstrap.Modal(document.getElementById('initProjectModal'));
+            }
+            initProjectModalInstance.show();
+        }
+
+        function executeInitProject() {
+            const name = document.getElementById('initProjectName').value.trim();
+            const php = document.getElementById('initProjectPhp').value;
+            const remote = document.getElementById('initProjectRemote').value.trim();
+            const resetGit = document.getElementById('initOptResetGit').checked;
+            const optEnvDb = document.getElementById('initOptEnvDb').checked;
+            const optComposer = document.getElementById('initOptComposer').checked;
+            const optKeyStorage = document.getElementById('initOptKeyStorage').checked;
+            const optMigrateSeed = document.getElementById('initOptMigrateSeed').checked;
+            const optCommit = document.getElementById('initOptCommit').checked;
+
+            const alertEl = document.getElementById('initProjectAlert');
+            const stepsEl = document.getElementById('initProjectSteps');
+            const btnConfirm = document.getElementById('btnConfirmInit');
+            const btnCancel = document.getElementById('btnCancelInit');
+
+            if (!name) {
+                alertEl.className = 'alert alert-danger small py-2 mb-2';
+                alertEl.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Harap masukkan nama project!';
+                alertEl.classList.remove('d-none');
+                return;
+            }
+
+            btnConfirm.disabled = true;
+            btnCancel.disabled = true;
+            btnConfirm.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Menginisialisasi...';
+
+            alertEl.className = 'alert alert-info small py-2 mb-2';
+            alertEl.innerHTML = `<i class="bi bi-hourglass-split me-1"></i> Meng-clone <strong>core-laravel</strong> dan menyiapkan otomatisasi untuk <strong>${escapeHtml(name)}</strong>... Mohon tunggu.`;
+            alertEl.classList.remove('d-none');
+
+            stepsEl.classList.remove('d-none');
+            stepsEl.innerHTML = '<div class="text-secondary"><i class="bi bi-arrow-repeat me-1 spinner-border spinner-border-sm" style="width:0.8rem;height:0.8rem;"></i> Menjalankan pipeline inisialisasi...</div>';
+
+            const formData = new FormData();
+            formData.append('action', 'init_project');
+            formData.append('name', name);
+            formData.append('php', php);
+            formData.append('remote_url', remote);
+            formData.append('opt_reset_git', resetGit ? '1' : '0');
+            formData.append('opt_env_db', optEnvDb ? '1' : '0');
+            formData.append('opt_composer', optComposer ? '1' : '0');
+            formData.append('opt_key_storage', optKeyStorage ? '1' : '0');
+            formData.append('opt_migrate_seed', optMigrateSeed ? '1' : '0');
+            formData.append('opt_initial_commit', optCommit ? '1' : '0');
+
+            fetch('', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alertEl.className = 'alert alert-success small py-2 mb-2';
+                    alertEl.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> ${escapeHtml(data.message)}`;
+                    
+                    if (data.steps && data.steps.length > 0) {
+                        stepsEl.innerHTML = data.steps.map(s => {
+                            const icon = s.status === 'ok' ? '<i class="bi bi-check-circle text-success me-1"></i>' : (s.status === 'skip' ? '<i class="bi bi-dash-circle text-secondary me-1"></i>' : '<i class="bi bi-exclamation-circle text-warning me-1"></i>');
+                            return `<div class="mb-1">${icon}<strong>${escapeHtml(s.step)}:</strong> <span class="text-secondary">${escapeHtml(s.message)}</span></div>`;
+                        }).join('');
+                    }
+
+                    setTimeout(() => {
+                        initProjectModalInstance.hide();
+                        location.reload();
+                    }, 2000);
+                } else {
+                    alertEl.className = 'alert alert-danger small py-2 mb-2';
+                    alertEl.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> ${escapeHtml(data.message || 'Gagal inisialisasi project.')}`;
+                    btnConfirm.disabled = false;
+                    btnCancel.disabled = false;
+                    btnConfirm.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Coba Lagi';
+                }
+            })
+            .catch(err => {
+                alertEl.className = 'alert alert-danger small py-2 mb-2';
+                alertEl.innerHTML = '<i class="bi bi-x-circle-fill me-1"></i> Terjadi kesalahan koneksi atau timeout.';
+                btnConfirm.disabled = false;
+                btnCancel.disabled = false;
+                btnConfirm.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Coba Lagi';
+            });
+        }
+
         // Clone Modal & Execution
         function openCloneModal(repoName, cloneUrl) {
             document.getElementById('cloneModalRepoName').textContent = repoName;
             document.getElementById('cloneTargetFolder').textContent = repoName;
             document.getElementById('cloneRepoName').value = repoName;
             document.getElementById('cloneRepoUrl').value = cloneUrl;
-            document.getElementById('cloneAlert').classList.add('d-none');
+            document.getElementById('cloneAlert').className = 'alert d-none small mb-2 py-2';
+            document.getElementById('cloneAlert').innerHTML = '';
+            document.getElementById('cloneSteps').className = 'p-2 rounded bg-black bg-opacity-60 border border-secondary border-opacity-50 small font-monospace d-none';
+            document.getElementById('cloneSteps').innerHTML = '';
 
             const btnConfirm = document.getElementById('btnConfirmClone');
+            const btnCancel = document.getElementById('btnCancelClone');
             btnConfirm.disabled = false;
-            btnConfirm.innerHTML = '<i class="bi bi-cloud-download me-1"></i> Mulai Clone';
+            btnCancel.disabled = false;
+            btnConfirm.innerHTML = '<i class="bi bi-cloud-download me-1"></i> Mulai Clone & Deploy';
 
             if (!cloneModalInstance) {
                 cloneModalInstance = new bootstrap.Modal(document.getElementById('cloneModal'));
@@ -1532,21 +2109,34 @@ foreach ($all_items as $item) {
         function executeClone() {
             const repo = document.getElementById('cloneRepoName').value;
             const php = document.getElementById('cloneSelectPhp').value;
+            const optEnvDb = document.getElementById('cloneOptEnvDb').checked;
+            const optComposer = document.getElementById('cloneOptComposer').checked;
+            const optKeyStorage = document.getElementById('cloneOptKeyStorage').checked;
+            const optMigrateSeed = document.getElementById('cloneOptMigrateSeed').checked;
+
             const alertEl = document.getElementById('cloneAlert');
+            const stepsEl = document.getElementById('cloneSteps');
             const btnConfirm = document.getElementById('btnConfirmClone');
             const btnCancel = document.getElementById('btnCancelClone');
 
             btnConfirm.disabled = true;
             btnCancel.disabled = true;
-            btnConfirm.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Meng-clone...';
-            alertEl.className = 'alert alert-info small py-2 mb-0';
-            alertEl.innerHTML = `<i class="bi bi-hourglass-split me-1"></i> Sedang meng-clone repository <strong>${repo}</strong> dan menyiapkan konfigurasi environment...`;
+            btnConfirm.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Menyiapkan...';
+            alertEl.className = 'alert alert-info small py-2 mb-2';
+            alertEl.innerHTML = `<i class="bi bi-hourglass-split me-1"></i> Sedang meng-clone repository <strong>${escapeHtml(repo)}</strong> dan menjalankan auto deploy pipeline... Mohon tunggu.`;
             alertEl.classList.remove('d-none');
+
+            stepsEl.classList.remove('d-none');
+            stepsEl.innerHTML = '<div class="text-secondary"><i class="bi bi-arrow-repeat me-1 spinner-border spinner-border-sm" style="width:0.8rem;height:0.8rem;"></i> Memulai clone dan dependensi...</div>';
 
             const formData = new FormData();
             formData.append('action', 'clone_repo');
             formData.append('repo', repo);
             formData.append('php', php);
+            formData.append('opt_env_db', optEnvDb ? '1' : '0');
+            formData.append('opt_composer', optComposer ? '1' : '0');
+            formData.append('opt_key_storage', optKeyStorage ? '1' : '0');
+            formData.append('opt_migrate_seed', optMigrateSeed ? '1' : '0');
 
             fetch('', {
                 method: 'POST',
@@ -1555,22 +2145,30 @@ foreach ($all_items as $item) {
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    alertEl.className = 'alert alert-success small py-2 mb-0';
-                    alertEl.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> ${data.message}`;
+                    alertEl.className = 'alert alert-success small py-2 mb-2';
+                    alertEl.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> ${escapeHtml(data.message)}`;
+                    
+                    if (data.steps && data.steps.length > 0) {
+                        stepsEl.innerHTML = data.steps.map(s => {
+                            const icon = s.status === 'ok' ? '<i class="bi bi-check-circle text-success me-1"></i>' : (s.status === 'skip' ? '<i class="bi bi-dash-circle text-secondary me-1"></i>' : '<i class="bi bi-exclamation-circle text-warning me-1"></i>');
+                            return `<div class="mb-1">${icon}<strong>${escapeHtml(s.step)}:</strong> <span class="text-secondary">${escapeHtml(s.message)}</span></div>`;
+                        }).join('');
+                    }
+
                     setTimeout(() => {
                         cloneModalInstance.hide();
                         location.reload();
-                    }, 1200);
+                    }, 2000);
                 } else {
-                    alertEl.className = 'alert alert-danger small py-2 mb-0';
-                    alertEl.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> ${data.message || 'Gagal melakukan clone.'}`;
+                    alertEl.className = 'alert alert-danger small py-2 mb-2';
+                    alertEl.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> ${escapeHtml(data.message || 'Gagal melakukan clone.')}`;
                     btnConfirm.disabled = false;
                     btnCancel.disabled = false;
                     btnConfirm.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Coba Lagi';
                 }
             })
             .catch(err => {
-                alertEl.className = 'alert alert-danger small py-2 mb-0';
+                alertEl.className = 'alert alert-danger small py-2 mb-2';
                 alertEl.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i> Terjadi kesalahan koneksi saat clone.`;
                 btnConfirm.disabled = false;
                 btnCancel.disabled = false;

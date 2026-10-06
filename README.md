@@ -42,14 +42,17 @@ Stack ini memungkinkan Anda menjalankan berbagai aplikasi web pemerintah daerah 
 - **Smart Web Dashboard**:
   - Live indicator status container (lampu hijau/merah) secara *real-time*.
   - Deteksi otomatis jenis framework project (**Laravel**, **CodeIgniter 3**, **PHP Native**).
-  - Tombol integrasi **`< / > VS Code`** untuk membuka project di editor host dalam satu klik.
-  - Modal **`⚙️ Setting`** untuk mengatur versi PHP dan direktori publik per-project.
+  - Tombol integrasi **`< / > VS Code`** dan **`🚀 Antigravity IDE`** untuk membuka project di editor host dalam satu klik.
+  - Tombol **`🚀 Project Baru (Core Laravel)`**: Inisialisasi otomatis project standar Diskominfo dari template `core-laravel`, reset git history, buat database MariaDB, jalankan composer, key:generate, storage:link, migrate & seed, dan initial commit.
+  - **Deteksi Project Belum Terhubung ke GitHub**: Memberi badge peringatan, filter kartu, dan panduan perintah git instan di modal setting untuk project lokal yang belum memiliki remote origin GitHub tim.
+  - Modal **`⚙️ Setting`** untuk mengatur versi PHP, framework, entry public, tombol IDE, dan status integrasi Git.
 - **Smart Terminal CLI (Auto-Routing)**:
   - Cukup ketik `artisan` atau `composer` di dalam folder project, sistem otomatis mengeksekusi perintah di container PHP yang sesuai dengan kebutuhan project tersebut.
   - Tersedia shortcut eksplisit: `php74`..`php83`, `composer74`..`composer83`, `artisan74`..`artisan83`.
   - Fitur **Auto-Wakeup**: Jika container yang dipanggil belum aktif, helper CLI akan menyalakannya secara otomatis.
 - **Auto-Fix Permissions (`fix-perms`)**: Perbaiki masalah *permission denied* pada folder `storage/`, `bootstrap/cache/`, dan file `.ws` dalam sekejap.
-- **Auto-Clone & Setup Project Diskominfo**: Ambil repository dari organisasi GitHub [tim-it-diskominfobintan](https://github.com/tim-it-diskominfobintan) dalam 1 perintah (`egov clone <nama_repo>` atau menu `[7]`). Otomatis konfigurasi file `.ws`, `.env` MariaDB, permission, dan Composer!
+- **Inisialisasi Project Baru (`egov init` / `cli/init-project.sh`)**: Clone dari template resmi `core-laravel`, reset git history (`rm -rf .git && git init -b main`), set remote baru, buat database MariaDB, jalankan composer & migrasi, dan buat initial commit secara otomatis!
+- **Auto-Clone & Ready-to-Deploy (`egov clone` / Web Dashboard)**: Ambil repository dari organisasi GitHub [tim-it-diskominfobintan](https://github.com/tim-it-diskominfobintan) dalam 1 perintah (`egov clone <nama_repo>` atau klik tombol Clone di dashboard). Otomatis konfigurasi file `.ws`, `.env`, database MariaDB, `composer install`, `key:generate`, `storage:link`, dan `migrate:fresh --seed`!
 
 ---
 
@@ -292,7 +295,7 @@ Jika Anda ingin memaksa menjalankan perintah dengan versi PHP tertentu:
 - **Auto-Wakeup**: Jika Anda menjalankan `artisan82 migrate` tetapi container PHP 8.2 belum hidup, sistem akan secara otomatis menyalakan container tersebut tanpa Anda harus membuka Docker Desktop atau menu launcher terlebih dahulu!
 - **Path Mapping**: Ketika Anda berada di folder `www/b-smart/app/Models` di host, helper secara presisi mengeksekusi perintah di dalam path container yang sesuai (`/var/www/html/b-smart/app/Models`).
 
-### 4. Clone & Setup Project Otomatis (`egov clone`)
+### 4. Clone & Auto-Deploy Project Eksisting (`egov clone`)
 Untuk mengunduh project baru dari organisasi resmi GitHub [tim-it-diskominfobintan](https://github.com/tim-it-diskominfobintan), Anda tidak perlu lagi melakukan clone manual, membuat `.env`, atau mengetik perintah docker. Cukup ketik:
 
 ```bash
@@ -311,11 +314,38 @@ clone-project ak1_disnaker
 
 **Alur yang Dijalankan Secara Otomatis:**
 1. Meng-clone repo dari `https://github.com/tim-it-diskominfobintan/<nama-repo>.git` ke `www/<nama-repo>/`.
-2. Membuat file konfigurasi `.ws` sesuai versi PHP yang dipilih.
+2. Membuat file konfigurasi `.ws` sesuai versi PHP yang dipilih dan `.code-workspace`.
 3. Menyiapkan file `.env` Laravel dengan koneksi database MariaDB Docker (`DB_HOST=database`, `DB_PORT=3306`, `DB_USERNAME=root`, `DB_PASSWORD=tiger`, `DB_DATABASE=<nama_project>`).
-4. Memperbaiki izin tulis (*permissions*) pada folder `storage/`, `bootstrap/cache/`, dan `.ws`.
-5. Menawarkan eksekusi `composer install` dan `artisan key:generate` langsung di dalam container PHP yang sesuai.
-6. Menawarkan untuk membuka project langsung ke **Antigravity IDE** atau **VS Code**!
+4. Membuat database di MariaDB (`CREATE DATABASE IF NOT EXISTS ...`) secara otomatis.
+5. Memperbaiki izin tulis (*permissions*) pada folder `storage/`, `bootstrap/cache/`, dan `.ws`.
+6. Menjalankan pipeline auto-deploy: `composer install`, `php artisan key:generate`, `php artisan storage:link`, dan `php artisan migrate:fresh --seed`!
+7. Menawarkan untuk membuka project langsung ke **Antigravity IDE** atau **VS Code**!
+
+### 5. Inisialisasi Project Baru dari Template Resmi (`egov init`)
+Standar resmi pembuatan project Laravel baru di lingkungan Diskominfo Bintan menggunakan template repository [core-laravel](https://github.com/tim-it-diskominfobintan/core-laravel).
+
+```bash
+# 1. Mode Interaktif (akan menanyakan nama project, PHP, remote baru):
+egov init
+
+# 2. Langsung sebutkan nama project:
+egov init e-surat
+
+# 3. Langsung tentukan PHP dan remote GitHub baru:
+egov init e-surat 83 https://github.com/tim-it-diskominfobintan/e-surat.git
+
+# 4. Menggunakan script langsung:
+./cli/init-project.sh e-surat 83
+```
+
+**Alur Inisialisasi:**
+1. Meng-clone template dari `tim-it-diskominfobintan/core-laravel`.
+2. Menghapus git history template (`rm -rf .git`) dan inisialisasi git baru (`git init -b main`).
+3. Menghubungkan remote GitHub baru jika disediakan (`git remote add origin <url>`).
+4. Menyiapkan `.env`, membuat database lokal di MariaDB, dan permission folder.
+5. Menjalankan `composer install`, `key:generate`, `storage:link`, dan `migrate:fresh --seed`.
+6. Membuat initial commit: `"chore: initialize project from core-laravel template"`.
+7. Siap langsung dibuka di **Antigravity IDE** / **VS Code** dan di-push ke GitHub!
 
 ---
 
@@ -556,7 +586,8 @@ egov-lamp/
 ├── cli/                        # Script kontrol dan helper terminal
 │   ├── egov                    # Interactive Terminal Launcher (Linux / macOS / WSL 2)
 │   ├── docker-php-helpers.sh   # Helper & Smart Router (Bash/Zsh)
-│   └── clone-project.sh        # Otomatisasi Clone & Setup Project Diskominfo
+│   ├── clone-project.sh        # Otomatisasi Clone & Setup Project Diskominfo
+│   └── init-project.sh         # Inisialisasi Project Baru (Template core-laravel)
 ├── config/                     # Konfigurasi server
 │   ├── php/                    # php.ini kustom untuk upload_max_filesize, memory_limit
 │   ├── phpmyadmin/             # Konfigurasi phpMyAdmin

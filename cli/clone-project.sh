@@ -134,7 +134,7 @@ echo "$PHP_VER" > "$TARGET_DIR/.ws"
 chmod 666 "$TARGET_DIR/.ws" 2>/dev/null
 echo -e "${GREEN}✔ Versi PHP project diset ke PHP $PHP_VER (file .ws dibuat).${NC}"
 
-# 4. Setup Lingkungan Laravel / File .env
+# 4. Setup Lingkungan Laravel / File .env & Database
 if [ -f "$TARGET_DIR/.env.example" ] && [ ! -f "$TARGET_DIR/.env" ]; then
     echo ""
     read -p "Ditemukan .env.example. Buat file .env dengan konfigurasi database Docker? [Y/n]: " ENV_CONFIRM
@@ -148,6 +148,11 @@ if [ -f "$TARGET_DIR/.env.example" ] && [ ! -f "$TARGET_DIR/.env" ]; then
         sed -i "s/^DB_DATABASE=.*/DB_DATABASE=$REPO_NAME/" "$TARGET_DIR/.env"
         sed -i 's/^REDIS_HOST=.*/REDIS_HOST=redis/' "$TARGET_DIR/.env"
         echo -e "${GREEN}✔ File .env dibuat otomatis (DB_HOST=database, user=root, pass=tiger)!${NC}"
+
+        # Buat database MariaDB secara otomatis
+        DB_SAFE_NAME=$(echo "$REPO_NAME" | sed 's/[^a-zA-Z0-9_]/_/g')
+        (cd "$ROOT_DIR" && docker compose exec -T database mysql -u root -ptiger -e "CREATE DATABASE IF NOT EXISTS \`$DB_SAFE_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || true)
+        echo -e "${GREEN}✔ Database MariaDB '$DB_SAFE_NAME' berhasil dipastikan ada.${NC}"
     fi
 fi
 
@@ -157,22 +162,33 @@ chmod 777 "$TARGET_DIR" 2>/dev/null
 [ -d "$TARGET_DIR/bootstrap/cache" ] && chmod -R 777 "$TARGET_DIR/bootstrap/cache" 2>/dev/null
 chmod 666 "$TARGET_DIR/.ws" 2>/dev/null
 
-# 6. Jalankan Composer Install jika diperlukan
-if [ -f "$TARGET_DIR/composer.json" ] && [ ! -d "$TARGET_DIR/vendor" ]; then
+# 6. Jalankan Composer Install & Laravel Auto Setup
+if [ -f "$TARGET_DIR/composer.json" ]; then
     echo ""
-    read -p "File composer.json ditemukan tapi folder vendor belum ada. Jalankan 'composer install' via Docker PHP $PHP_VER? [Y/n]: " COMP_CONFIRM
+    read -p "Jalankan 'composer install' & auto-setup via Docker PHP $PHP_VER? [Y/n]: " COMP_CONFIRM
     if [[ "$COMP_CONFIRM" =~ ^[Yy]$ || -z "$COMP_CONFIRM" ]]; then
-        echo -e "${YELLOW}Memastikan container egov-$PHP_CONTAINER aktif...${NC}"
+        echo -e "${YELLOW}Memastikan container egov-$PHP_CONTAINER & database aktif...${NC}"
         (cd "$ROOT_DIR" && docker compose up -d database redis "$PHP_CONTAINER")
         
         echo -e "${YELLOW}Menjalankan composer install di dalam container...${NC}"
-        docker exec -it -w "/var/www/html/$REPO_NAME" "egov-$PHP_CONTAINER" composer install
+        docker exec -it -w "/var/www/html/$REPO_NAME" -e COMPOSER_ALLOW_SUPERUSER=1 "egov-$PHP_CONTAINER" composer install --no-interaction
         
-        # Jika Laravel dan APP_KEY belum ada, generate otomatis
-        if [ -f "$TARGET_DIR/artisan" ] && [ -f "$TARGET_DIR/.env" ]; then
-            if ! grep -q "^APP_KEY=base64:" "$TARGET_DIR/.env" 2>/dev/null; then
+        # Jika Laravel: key:generate, storage:link, migrate
+        if [ -f "$TARGET_DIR/artisan" ]; then
+            if [ -f "$TARGET_DIR/.env" ] && ! grep -q "^APP_KEY=base64:" "$TARGET_DIR/.env" 2>/dev/null; then
                 echo -e "${YELLOW}Menjalankan artisan key:generate...${NC}"
-                docker exec -it -w "/var/www/html/$REPO_NAME" "egov-$PHP_CONTAINER" php artisan key:generate
+                docker exec -it -w "/var/www/html/$REPO_NAME" "egov-$PHP_CONTAINER" php artisan key:generate --force
+            fi
+
+            echo -e "${YELLOW}Membuat symlink storage...${NC}"
+            docker exec -it -w "/var/www/html/$REPO_NAME" "egov-$PHP_CONTAINER" php artisan storage:link 2>/dev/null || true
+
+            echo ""
+            read -p "Jalankan migrasi database (php artisan migrate:fresh --seed)? [Y/n]: " MIGRATE_CONFIRM
+            if [[ "$MIGRATE_CONFIRM" =~ ^[Yy]$ || -z "$MIGRATE_CONFIRM" ]]; then
+                echo -e "${YELLOW}Menjalankan php artisan migrate:fresh --seed...${NC}"
+                docker exec -it -w "/var/www/html/$REPO_NAME" "egov-$PHP_CONTAINER" php artisan migrate:fresh --seed --force
+                echo -e "${GREEN}✔ Database migration & seed selesai.${NC}"
             fi
         fi
     fi
