@@ -73,19 +73,25 @@ fi
 if [ -z "$PHP_INPUT" ]; then
     echo ""
     echo -e "${CYAN}Pilih versi PHP untuk project ini:${NC}"
-    echo -e "  ${BOLD}1)${NC} PHP 8.3 (Port :8083 - Rekomendasi Laravel Terbaru)"
-    echo -e "  ${BOLD}2)${NC} PHP 8.2 (Port :8082)"
-    echo -e "  ${BOLD}3)${NC} PHP 8.1 (Port :8081)"
-    read -p "Pilihan versi [1-3] (default 1): " PHP_CHOICE
+    echo -e "  ${BOLD}1)${NC} PHP 8.3 (Port :8083 - Rekomendasi Laravel)"
+    echo -e "  ${BOLD}2)${NC} PHP 8.4 (Port :8084 - Modern)"
+    echo -e "  ${BOLD}3)${NC} PHP 8.5 (Port :8085 - Latest)"
+    echo -e "  ${BOLD}4)${NC} PHP 8.2 (Port :8082)"
+    echo -e "  ${BOLD}5)${NC} PHP 8.1 (Port :8081)"
+    read -p "Pilihan versi [1-5] (default 1): " PHP_CHOICE
     case $PHP_CHOICE in
-        2|8.2|82) PHP_VER="8.2"; PHP_CONTAINER="php82"; PORT="8082" ;;
-        3|8.1|81) PHP_VER="8.1"; PHP_CONTAINER="php81"; PORT="8081" ;;
+        2|8.4|84) PHP_VER="8.4"; PHP_CONTAINER="php84"; PORT="8084" ;;
+        3|8.5|85) PHP_VER="8.5"; PHP_CONTAINER="php85"; PORT="8085" ;;
+        4|8.2|82) PHP_VER="8.2"; PHP_CONTAINER="php82"; PORT="8082" ;;
+        5|8.1|81) PHP_VER="8.1"; PHP_CONTAINER="php81"; PORT="8081" ;;
         *)        PHP_VER="8.3"; PHP_CONTAINER="php83"; PORT="8083" ;;
     esac
 else
     case $PHP_INPUT in
-        2|8.2|82) PHP_VER="8.2"; PHP_CONTAINER="php82"; PORT="8082" ;;
-        3|8.1|81) PHP_VER="8.1"; PHP_CONTAINER="php81"; PORT="8081" ;;
+        2|8.4|84) PHP_VER="8.4"; PHP_CONTAINER="php84"; PORT="8084" ;;
+        3|8.5|85) PHP_VER="8.5"; PHP_CONTAINER="php85"; PORT="8085" ;;
+        4|8.2|82) PHP_VER="8.2"; PHP_CONTAINER="php82"; PORT="8082" ;;
+        5|8.1|81) PHP_VER="8.1"; PHP_CONTAINER="php81"; PORT="8081" ;;
         *)        PHP_VER="8.3"; PHP_CONTAINER="php83"; PORT="8083" ;;
     esac
 fi

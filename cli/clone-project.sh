@@ -125,16 +125,20 @@ if [ -z "$PHP_INPUT" ]; then
     echo -e "  ${BOLD}3)${NC} PHP 8.1 (Port :8081)"
     echo -e "  ${BOLD}4)${NC} PHP 8.2 (Port :8082)"
     echo -e "  ${BOLD}5)${NC} PHP 8.3 (Port :8083 - Rekomendasi Laravel)"
+    echo -e "  ${BOLD}6)${NC} PHP 8.4 (Port :8084 - Modern)"
+    echo -e "  ${BOLD}7)${NC} PHP 8.5 (Port :8085 - Latest)"
     if [ -n "$CURRENT_WS" ]; then
         echo -e "  *(Saat ini sudah diset ke PHP $CURRENT_WS)*"
     fi
-    read -p "Pilihan versi [1-5] (default $DEFAULT_OPT): " PHP_CHOICE
+    read -p "Pilihan versi [1-7] (default $DEFAULT_OPT): " PHP_CHOICE
     [ -z "$PHP_CHOICE" ] && PHP_CHOICE="$DEFAULT_OPT"
     case $PHP_CHOICE in
         1|7.4|74) PHP_VER="7.4"; PHP_CONTAINER="php74"; PORT="8074" ;;
         2|8.0|80) PHP_VER="8.0"; PHP_CONTAINER="php80"; PORT="8080" ;;
         3|8.1|81) PHP_VER="8.1"; PHP_CONTAINER="php81"; PORT="8081" ;;
         5|8.3|83) PHP_VER="8.3"; PHP_CONTAINER="php83"; PORT="8083" ;;
+        6|8.4|84) PHP_VER="8.4"; PHP_CONTAINER="php84"; PORT="8084" ;;
+        7|8.5|85) PHP_VER="8.5"; PHP_CONTAINER="php85"; PORT="8085" ;;
         *)        PHP_VER="8.2"; PHP_CONTAINER="php82"; PORT="8082" ;;
     esac
 else
@@ -143,6 +147,8 @@ else
         2|8.0|80) PHP_VER="8.0"; PHP_CONTAINER="php80"; PORT="8080" ;;
         3|8.1|81) PHP_VER="8.1"; PHP_CONTAINER="php81"; PORT="8081" ;;
         5|8.3|83) PHP_VER="8.3"; PHP_CONTAINER="php83"; PORT="8083" ;;
+        6|8.4|84) PHP_VER="8.4"; PHP_CONTAINER="php84"; PORT="8084" ;;
+        7|8.5|85) PHP_VER="8.5"; PHP_CONTAINER="php85"; PORT="8085" ;;
         *)        PHP_VER="8.2"; PHP_CONTAINER="php82"; PORT="8082" ;;
     esac
 fi

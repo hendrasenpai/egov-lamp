@@ -147,8 +147,9 @@ function run_laravel_auto_setup($dir, $repo, $options, &$steps = []) {
 
     // 3. Composer Install
     if (!empty($options['composer']) && file_exists("$dir/composer.json")) {
-        @mkdir('/tmp/composer', 0777, true);
-        @chmod('/tmp/composer', 0777);
+        $composer_cache = realpath('./') . '/.composer_cache';
+        @mkdir($composer_cache, 0777, true);
+        @chmod($composer_cache, 0777);
 
         $auth_env = '';
         $token_file = './.github_token';
@@ -160,7 +161,7 @@ function run_laravel_auto_setup($dir, $repo, $options, &$steps = []) {
             }
         }
 
-        $cmd = "cd " . escapeshellarg($dir) . " && export COMPOSER_HOME=/tmp/composer && export COMPOSER_ALLOW_SUPERUSER=1 && export COMPOSER_MEMORY_LIMIT=-1 && export COMPOSER_PROCESS_TIMEOUT=600 && {$auth_env}composer install --no-interaction --prefer-dist --optimize-autoloader 2>&1";
+        $cmd = "cd " . escapeshellarg($dir) . " && export COMPOSER_HOME=" . escapeshellarg($composer_cache) . " && export COMPOSER_ALLOW_SUPERUSER=1 && export COMPOSER_MEMORY_LIMIT=-1 && export COMPOSER_PROCESS_TIMEOUT=600 && {$auth_env}composer install --no-interaction --prefer-dist --optimize-autoloader --no-progress 2>&1";
         $comp_out = [];
         $comp_ret = 0;
         exec($cmd, $comp_out, $comp_ret);
@@ -655,6 +656,206 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+// Helper untuk membaca commit & versi egov-lamp lokal
+function get_local_lamp_info() {
+    $info = [
+        'version' => '1.2.0',
+        'commit' => '',
+        'commit_short' => '',
+        'branch' => 'main',
+        'message' => '',
+        'date' => ''
+    ];
+
+    // 1. Cek langsung dari /lamp git jika termounting
+    if (is_dir('/lamp/.git')) {
+        $hash = trim(@shell_exec("git -c safe.directory='*' -C /lamp rev-parse HEAD 2>/dev/null") ?? '');
+        if ($hash) {
+            $info['commit'] = $hash;
+            $info['commit_short'] = substr($hash, 0, 7);
+            $info['branch'] = trim(@shell_exec("git -c safe.directory='*' -C /lamp rev-parse --abbrev-ref HEAD 2>/dev/null") ?? 'main');
+            $info['message'] = trim(@shell_exec("git -c safe.directory='*' -C /lamp log -1 --pretty=%B 2>/dev/null") ?? '');
+            $info['date'] = trim(@shell_exec("git -c safe.directory='*' -C /lamp log -1 --pretty=%cI 2>/dev/null") ?? '');
+            return $info;
+        }
+    }
+
+    // 2. Fallback baca .lamp_version.json di root www
+    if (file_exists('./.lamp_version.json')) {
+        $data = @json_decode(file_get_contents('./.lamp_version.json'), true);
+        if (is_array($data)) {
+            return array_merge($info, $data);
+        }
+    }
+
+    return $info;
+}
+
+// 5. Handle API Cek Update egov-lamp dari GitHub
+if (isset($_GET['action']) && $_GET['action'] === 'check_lamp_update') {
+    if (ob_get_level()) ob_clean();
+    header('Content-Type: application/json');
+    $force = isset($_GET['force']) && ($_GET['force'] === '1' || $_GET['force'] === 'true');
+    $cache_file = './.lamp_update_cache.json';
+
+    $local = get_local_lamp_info();
+    $local_commit = $local['commit'] ?: 'unknown';
+
+    // Gunakan cache jika masih dalam 30 menit dan tidak dipaksa refresh
+    if (!$force && file_exists($cache_file) && (time() - filemtime($cache_file) < 1800)) {
+        $cached = @json_decode(file_get_contents($cache_file), true);
+        if (is_array($cached)) {
+            $cached['current_commit'] = $local['commit_short'] ?: substr($local_commit, 0, 7);
+            $cached['current_commit_full'] = $local_commit;
+            $cached['has_update'] = (!empty($cached['latest_commit_full']) && strtolower(trim($local_commit)) !== strtolower(trim($cached['latest_commit_full'])));
+            $cached['cached'] = true;
+            echo json_encode($cached);
+            exit;
+        }
+    }
+
+    $config = get_github_config();
+    $repo = 'hendrasenpai/egov-lamp';
+    $url = "https://api.github.com/repos/{$repo}/commits/main";
+
+    $headers = [
+        'User-Agent: EGOV-LAMP-Dashboard',
+        'Accept: application/vnd.github.v3+json'
+    ];
+    if (!empty($config['token'])) {
+        $headers[] = "Authorization: token {$config['token']}";
+    }
+
+    $opts = [
+        'http' => [
+            'method' => 'GET',
+            'header' => $headers,
+            'timeout' => 8
+        ]
+    ];
+    $context = stream_context_create($opts);
+    $response = @file_get_contents($url, false, $context);
+
+    if ($response === false) {
+        if (file_exists($cache_file)) {
+            $cached = @json_decode(file_get_contents($cache_file), true);
+            if (is_array($cached)) {
+                $cached['current_commit'] = $local['commit_short'] ?: substr($local_commit, 0, 7);
+                $cached['current_commit_full'] = $local_commit;
+                $cached['cached'] = true;
+                echo json_encode($cached);
+                exit;
+            }
+        }
+        echo json_encode([
+            'success' => false,
+            'has_update' => false,
+            'current_commit' => $local['commit_short'] ?: substr($local_commit, 0, 7),
+            'current_commit_full' => $local_commit,
+            'message' => 'Tidak dapat terhubung ke GitHub API'
+        ]);
+        exit;
+    }
+
+    $data = @json_decode($response, true);
+    if (!isset($data['sha'])) {
+        echo json_encode([
+            'success' => false,
+            'has_update' => false,
+            'current_commit' => $local['commit_short'] ?: substr($local_commit, 0, 7),
+            'current_commit_full' => $local_commit,
+            'message' => 'Respon GitHub API tidak valid'
+        ]);
+        exit;
+    }
+
+    $remote_sha = $data['sha'];
+    $remote_short = substr($remote_sha, 0, 7);
+    $commit_msg = $data['commit']['message'] ?? '';
+    $author_name = $data['commit']['author']['name'] ?? ($data['commit']['committer']['name'] ?? 'GitHub');
+    $commit_date = $data['commit']['author']['date'] ?? ($data['commit']['committer']['date'] ?? '');
+    $html_url = $data['html_url'] ?? "https://github.com/{$repo}/commit/{$remote_sha}";
+
+    $has_update = (strtolower(trim($local_commit)) !== strtolower(trim($remote_sha)));
+
+    $result = [
+        'success' => true,
+        'has_update' => $has_update,
+        'current_commit' => $local['commit_short'] ?: substr($local_commit, 0, 7),
+        'current_commit_full' => $local_commit,
+        'latest_commit' => $remote_short,
+        'latest_commit_full' => $remote_sha,
+        'latest_message' => $commit_msg,
+        'latest_author' => $author_name,
+        'latest_date' => $commit_date,
+        'html_url' => $html_url,
+        'checked_at' => time(),
+        'cached' => false
+    ];
+
+    @file_put_contents($cache_file, json_encode($result, JSON_PRETTY_PRINT));
+    echo json_encode($result);
+    exit;
+}
+
+// 6. Handle API Terapkan Update egov-lamp
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'apply_lamp_update') {
+    if (ob_get_level()) ob_clean();
+    header('Content-Type: application/json');
+    @set_time_limit(180);
+
+    if (!is_dir('/lamp/.git')) {
+        echo json_encode([
+            'success' => false,
+            'require_terminal' => true,
+            'command' => 'egov update',
+            'message' => 'Folder /lamp tidak termounting langsung di container ini. Silakan jalankan update di terminal: egov update'
+        ]);
+        exit;
+    }
+
+    $output = [];
+    $return_var = 0;
+    exec("git -c safe.directory='*' -C /lamp pull https://github.com/hendrasenpai/egov-lamp.git main 2>&1", $output, $return_var);
+
+    if ($return_var === 0) {
+        $new_commit = trim(@shell_exec("git -c safe.directory='*' -C /lamp rev-parse HEAD 2>/dev/null") ?? '');
+        $new_short = substr($new_commit, 0, 7);
+        $new_msg = trim(@shell_exec("git -c safe.directory='*' -C /lamp log -1 --pretty=%B 2>/dev/null") ?? '');
+        $new_date = trim(@shell_exec("git -c safe.directory='*' -C /lamp log -1 --pretty=%cI 2>/dev/null") ?? '');
+
+        $info = [
+            'version' => '1.2.0',
+            'commit' => $new_commit,
+            'commit_short' => $new_short,
+            'message' => $new_msg,
+            'date' => $new_date,
+            'branch' => 'main',
+            'repo' => 'hendrasenpai/egov-lamp'
+        ];
+        @file_put_contents('./.lamp_version.json', json_encode($info, JSON_PRETTY_PRINT));
+        @unlink('./.lamp_update_cache.json');
+
+        echo json_encode([
+            'success' => true,
+            'new_commit' => $new_short,
+            'message' => "egov-lamp berhasil diperbarui ke commit {$new_short}!",
+            'log' => implode("\n", $output)
+        ]);
+    } else {
+        echo json_encode([
+            'success' => false,
+            'require_terminal' => true,
+            'command' => 'egov update',
+            'message' => 'Gagal git pull otomatis di container. Silakan gunakan perintah terminal: egov update',
+            'log' => implode("\n", $output)
+        ]);
+    }
+    exit;
+}
+
+$excluded = ['.', '..', 'assets', '.DS_Store', 'vendor', 'test_db.php', 'test_db_pdo.php', 'phpinfo.php', 'index.php', 'favicon.png', 'composer.json', 'composer.lock', '.github_cache.json', '.github_token', '.composer_cache', '.lamp_version.json', '.lamp_update_cache.json'];
+
 $php_version = phpversion();
 $apache_version = function_exists('apache_get_version') ? apache_get_version() : 'Apache Server';
 $pma_port = getenv('PMA_PORT') ?: '8888';
@@ -665,12 +866,14 @@ $php_port_map = [
     '8.0' => '8080',
     '8.1' => '8081',
     '8.2' => '8082',
-    '8.3' => '8083'
+    '8.3' => '8083',
+    '8.4' => '8084',
+    '8.5' => '8085'
 ];
 
 // Scan active project directories
 $all_items = scandir('./');
-$excluded = ['.', '..', 'assets', '.DS_Store', 'vendor', 'test_db.php', 'test_db_pdo.php', 'phpinfo.php', 'index.php', 'favicon.png', 'composer.json', 'composer.lock', '.github_cache.json', '.github_token'];
+$excluded = ['.', '..', 'assets', '.DS_Store', 'vendor', 'test_db.php', 'test_db_pdo.php', 'phpinfo.php', 'index.php', 'favicon.png', 'composer.json', 'composer.lock', '.github_cache.json', '.github_token', '.composer_cache', '.lamp_version.json', '.lamp_update_cache.json'];
 $projects = [];
 $php_files = [];
 
@@ -1271,6 +1474,15 @@ foreach ($projects as $p) {
 
         .project-item[data-ide="both"] .btn-ide-vscode,
         .project-item[data-ide="both"] .btn-ide-antigravity { display: inline-flex !important; }
+
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.6); }
+            70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+        .pulse-glow-btn {
+            animation: pulse-glow 2s infinite;
+        }
     </style>
 </head>
 <body>
@@ -1292,6 +1504,11 @@ foreach ($projects as $p) {
                         <div class="d-flex align-items-center gap-2">
                             <h1 class="h6 fw-bold mb-0 text-light tracking-tight">E-GOVERNMENT DISKOMINFO BINTAN</h1>
                             <span class="badge badge-active-port font-monospace"><i class="bi bi-hdd-network me-1"></i>Port: <span id="current-port">...</span></span>
+                            <div id="lamp-update-pill" class="d-inline-flex align-items-center ms-1">
+                                <span class="badge bg-dark border border-secondary text-secondary py-1 px-2 font-monospace" style="font-size: 0.75rem; cursor: pointer;" onclick="checkLampUpdate(true)" title="Cek update LAMP stack">
+                                    <i class="bi bi-stack text-info me-1"></i>LAMP <span id="lamp-header-commit">...</span>
+                                </span>
+                            </div>
                         </div>
                         <div class="small text-secondary mt-0">
                             Multi-PHP Isolated Development Stack • Active Container: <span class="text-info fw-semibold font-monospace">PHP <?= $php_version ?></span>
@@ -1317,6 +1534,12 @@ foreach ($projects as $p) {
                         </a>
                         <a href="http://localhost:8083" id="btn-php83" class="btn btn-engine" data-port="8083" title="PHP 8.3 (Port 8083)">
                             <span class="status-dot status-offline" id="dot-php83"></span>8.3
+                        </a>
+                        <a href="http://localhost:8084" id="btn-php84" class="btn btn-engine" data-port="8084" title="PHP 8.4 (Port 8084)">
+                            <span class="status-dot status-offline" id="dot-php84"></span>8.4
+                        </a>
+                        <a href="http://localhost:8085" id="btn-php85" class="btn btn-engine" data-port="8085" title="PHP 8.5 (Port 8085)">
+                            <span class="status-dot status-offline" id="dot-php85"></span>8.5
                         </a>
                     </div>
                 </div>
@@ -1603,6 +1826,8 @@ foreach ($projects as $p) {
                                 <option value="8.1">PHP 8.1 (Port 8081)</option>
                                 <option value="8.2">PHP 8.2 (Port 8082)</option>
                                 <option value="8.3">PHP 8.3 (Port 8083) - Rekomendasi Laravel 12</option>
+                                <option value="8.4">PHP 8.4 (Port 8084) - Modern</option>
+                                <option value="8.5">PHP 8.5 (Port 8085) - Latest</option>
                             </select>
                             <small class="text-muted">Tombol 'Buka' akan otomatis membuka port PHP yang Anda pilih di sini.</small>
                         </div>
@@ -1839,6 +2064,8 @@ foreach ($projects as $p) {
                             <label class="form-label text-secondary small fw-bold">VERSI PHP</label>
                             <select class="form-select bg-dark text-light border-secondary" id="initProjectPhp">
                                 <option value="8.3" selected>PHP 8.3 (Port 8083) - Rekomendasi</option>
+                                <option value="8.4">PHP 8.4 (Port 8084) - Modern</option>
+                                <option value="8.5">PHP 8.5 (Port 8085) - Latest</option>
                                 <option value="8.2">PHP 8.2 (Port 8082)</option>
                                 <option value="8.1">PHP 8.1 (Port 8081)</option>
                             </select>
@@ -1938,6 +2165,8 @@ foreach ($projects as $p) {
                             <option value="8.1">PHP 8.1 (Port 8081)</option>
                             <option value="8.2">PHP 8.2 (Port 8082)</option>
                             <option value="8.3" selected>PHP 8.3 (Port 8083) - Rekomendasi Laravel Terbaru</option>
+                            <option value="8.4">PHP 8.4 (Port 8084) - Modern</option>
+                            <option value="8.5">PHP 8.5 (Port 8085) - Latest</option>
                         </select>
                         <small class="text-muted">Untuk CodeIgniter 3, disarankan PHP 7.4 (sistem akan otomatis mendeteksi).</small>
                     </div>
@@ -2075,6 +2304,41 @@ foreach ($projects as $p) {
         </div>
     </div>
 
+    <!-- Modal Notifikasi Update LAMP Stack -->
+    <div class="modal fade" id="lampUpdateModal" tabindex="-1" aria-labelledby="lampUpdateModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content custom-card border-info">
+                <div class="modal-header border-secondary border-opacity-25 pb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="rounded-circle p-2 bg-info bg-opacity-10 text-info">
+                            <i class="bi bi-rocket-takeoff-fill fs-5"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-light" id="lampUpdateModalLabel">Pembaruan egov-lamp</h5>
+                            <div class="text-secondary small">Repository: <span class="text-info font-monospace">hendrasenpai/egov-lamp</span></div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body py-3">
+                    <div id="lampUpdateContent">
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-info spinner-border-sm me-2" role="status"></div>
+                            <span class="text-secondary small">Memeriksa pembaruan dari GitHub...</span>
+                        </div>
+                    </div>
+                    <div id="lampUpdateAlert" class="alert d-none small mb-0 py-2 mt-3"></div>
+                </div>
+                <div class="modal-footer border-secondary border-opacity-25 pt-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" id="btnCancelLampUpdate">Tutup</button>
+                    <button type="button" id="btnApplyLampUpdate" class="btn btn-primary-action btn-sm" onclick="applyLampUpdate()">
+                        <i class="bi bi-arrow-repeat me-1"></i> Update Sekarang (1-Klik)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification Container -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
         <div id="actionToast" class="toast align-items-center text-bg-dark border-secondary" role="alert" aria-live="assertive" aria-atomic="true">
@@ -2096,7 +2360,9 @@ foreach ($projects as $p) {
             { id: 'php80', port: '8080' },
             { id: 'php81', port: '8081' },
             { id: 'php82', port: '8082' },
-            { id: 'php83', port: '8083' }
+            { id: 'php83', port: '8083' },
+            { id: 'php84', port: '8084' },
+            { id: 'php85', port: '8085' }
         ];
 
         phpContainers.forEach(item => {
@@ -3309,10 +3575,173 @@ foreach ($projects as $p) {
             });
         }
 
-        // Init on page load: Apply IDE preferences and fetch GitHub count
+        // ==========================================
+        // LAMP Stack Update Notification System
+        // ==========================================
+        let lampUpdateData = null;
+        let lampUpdateModalInstance = null;
+
+        function getLampUpdateModal() {
+            if (!lampUpdateModalInstance) {
+                const el = document.getElementById('lampUpdateModal');
+                if (el) lampUpdateModalInstance = new bootstrap.Modal(el);
+            }
+            return lampUpdateModalInstance;
+        }
+
+        function checkLampUpdate(force = false) {
+            const pill = document.getElementById('lamp-update-pill');
+            const commitSpan = document.getElementById('lamp-header-commit');
+            if (force && commitSpan) {
+                commitSpan.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:0.6rem;height:0.6rem;"></span>';
+            }
+
+            fetch(`?action=check_lamp_update${force ? '&force=1' : ''}`)
+                .then(res => res.json())
+                .then(data => {
+                    lampUpdateData = data;
+                    if (data.current_commit && commitSpan) {
+                        commitSpan.textContent = data.current_commit;
+                    }
+
+                    if (data.has_update) {
+                        pill.innerHTML = `
+                            <button type="button" class="btn btn-sm btn-outline-warning py-0 px-2 font-monospace position-relative d-inline-flex align-items-center gap-1 pulse-glow-btn" style="font-size: 0.75rem; height: 22px;" onclick="openLampUpdateModal()">
+                                <i class="bi bi-arrow-up-circle-fill text-warning"></i>
+                                <span class="d-none d-sm-inline">Update Tersedia!</span>
+                                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;">New</span>
+                            </button>
+                        `;
+                    } else {
+                        pill.innerHTML = `
+                            <span class="badge bg-dark border border-secondary text-secondary py-1 px-2 font-monospace" style="font-size: 0.75rem; cursor: pointer;" onclick="checkLampUpdate(true)" title="egov-lamp sudah versi terbaru. Klik untuk cek ulang.">
+                                <i class="bi bi-stack text-info me-1"></i>LAMP <span class="text-light">${escapeHtml(data.current_commit || 'v1.2')}</span> <i class="bi bi-check2 text-success ms-1"></i>
+                            </span>
+                        `;
+                    }
+                })
+                .catch(err => {
+                    console.warn('Gagal memeriksa update LAMP stack:', err);
+                });
+        }
+
+        function openLampUpdateModal() {
+            const content = document.getElementById('lampUpdateContent');
+            const alertEl = document.getElementById('lampUpdateAlert');
+            alertEl.classList.add('d-none');
+            alertEl.textContent = '';
+            document.getElementById('btnApplyLampUpdate').disabled = false;
+            document.getElementById('btnApplyLampUpdate').innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Update Sekarang (1-Klik)';
+
+            const modal = getLampUpdateModal();
+
+            if (!lampUpdateData) {
+                checkLampUpdate(true);
+                if (modal) modal.show();
+                return;
+            }
+
+            const data = lampUpdateData;
+            const isUpdate = data.has_update;
+
+            let html = `
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <div class="p-2 rounded bg-black bg-opacity-40 border border-secondary border-opacity-40 text-center">
+                            <div class="text-secondary small">Commit Lokal Saat Ini</div>
+                            <div class="fw-bold font-monospace text-light fs-6 mt-1">${escapeHtml(data.current_commit || 'unknown')}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-2 rounded bg-black bg-opacity-40 border border-secondary border-opacity-40 text-center">
+                            <div class="text-secondary small">Commit GitHub Terbaru</div>
+                            <div class="fw-bold font-monospace ${isUpdate ? 'text-warning' : 'text-success'} fs-6 mt-1">
+                                ${escapeHtml(data.latest_commit || 'unknown')}
+                                ${isUpdate ? '<span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;">Baru</span>' : '<i class="bi bi-check-circle-fill text-success ms-1"></i>'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (data.latest_message) {
+                html += `
+                    <div class="card bg-black bg-opacity-30 border-secondary border-opacity-50 p-3 mb-3">
+                        <div class="text-secondary small fw-bold mb-1"><i class="bi bi-git me-1 text-info"></i>PESAN COMMIT TERBARU:</div>
+                        <div class="text-light font-monospace small mb-2" style="white-space: pre-wrap;">${escapeHtml(data.latest_message)}</div>
+                        <div class="d-flex justify-content-between align-items-center small text-secondary">
+                            <span><i class="bi bi-person me-1"></i>${escapeHtml(data.latest_author || 'Author')}</span>
+                            ${data.html_url ? `<a href="${escapeHtml(data.html_url)}" target="_blank" class="text-info text-decoration-none"><i class="bi bi-box-arrow-up-right me-1"></i>Lihat di GitHub</a>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            html += `
+                <div class="p-2 rounded bg-black bg-opacity-30 border border-secondary border-opacity-30 small">
+                    <div class="text-secondary small fw-bold mb-1"><i class="bi bi-terminal me-1 text-warning"></i>PERINTAH TERMINAL LOKAL:</div>
+                    <div class="d-flex align-items-center justify-content-between bg-dark p-2 rounded">
+                        <code class="text-info">egov update</code>
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="navigator.clipboard.writeText('egov update'); showToast('Perintah disalin ke clipboard!');">Salin</button>
+                    </div>
+                </div>
+            `;
+
+            content.innerHTML = html;
+            if (modal) modal.show();
+        }
+
+        function applyLampUpdate() {
+            const btn = document.getElementById('btnApplyLampUpdate');
+            const btnCancel = document.getElementById('btnCancelLampUpdate');
+            const alertEl = document.getElementById('lampUpdateAlert');
+            const modal = getLampUpdateModal();
+
+            btn.disabled = true;
+            btnCancel.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Mengupdate...';
+            alertEl.className = 'alert alert-info small py-2 mb-0 mt-3';
+            alertEl.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Menjalankan <code>git pull</code> untuk memperbarui LAMP stack...';
+            alertEl.classList.remove('d-none');
+
+            const formData = new FormData();
+            formData.append('action', 'apply_lamp_update');
+
+            fetch('', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alertEl.className = 'alert alert-success small py-2 mb-0 mt-3';
+                    alertEl.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> ${escapeHtml(data.message || 'Berhasil diperbarui!')}`;
+                    setTimeout(() => {
+                        if (modal) modal.hide();
+                        location.reload();
+                    }, 1500);
+                } else {
+                    alertEl.className = 'alert alert-warning small py-2 mb-0 mt-3';
+                    alertEl.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> ${escapeHtml(data.message)}`;
+                    btn.disabled = false;
+                    btnCancel.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Coba Lagi';
+                }
+            })
+            .catch(err => {
+                alertEl.className = 'alert alert-danger small py-2 mb-0 mt-3';
+                alertEl.innerHTML = '<i class="bi bi-x-circle-fill me-1"></i> Terjadi kesalahan koneksi atau timeout. Silakan gunakan perintah terminal: <code>egov update</code>';
+                btn.disabled = false;
+                btnCancel.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Coba Lagi';
+            });
+        }
+
+        // Init on page load: Apply IDE preferences, check updates and fetch GitHub count
         document.addEventListener('DOMContentLoaded', function() {
             applyIdePreferences();
             loadGitHubRepos(false);
+            checkLampUpdate(false);
         });
     </script>
 </body>

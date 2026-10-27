@@ -67,6 +67,7 @@ services:
       - database
     volumes:
       - ${DOCUMENT_ROOT-./www}:/var/www/html:rw
+      - ./:/lamp:rw
       - ${PHP_INI-./config/php/php.ini}:/usr/local/etc/php/php.ini
       - ${SSL_DIR-./config/ssl}:/etc/apache2/ssl/
       - ${VHOSTS_DIR-./config/vhosts}:/etc/apache2/sites-enabled
@@ -100,6 +101,7 @@ services:
       - database
     volumes:
       - ${DOCUMENT_ROOT-./www}:/var/www/html:rw
+      - ./:/lamp:rw
       - ${PHP_INI-./config/php/php.ini}:/usr/local/etc/php/php.ini
       - ${SSL_DIR-./config/ssl}:/etc/apache2/ssl/
       - ${VHOSTS_DIR-./config/vhosts}:/etc/apache2/sites-enabled
@@ -133,6 +135,7 @@ services:
       - database
     volumes:
       - ${DOCUMENT_ROOT-./www}:/var/www/html:rw
+      - ./:/lamp:rw
       - ${PHP_INI-./config/php/php.ini}:/usr/local/etc/php/php.ini
       - ${SSL_DIR-./config/ssl}:/etc/apache2/ssl/
       - ${VHOSTS_DIR-./config/vhosts}:/etc/apache2/sites-enabled
@@ -166,6 +169,7 @@ services:
       - database
     volumes:
       - ${DOCUMENT_ROOT-./www}:/var/www/html:rw
+      - ./:/lamp:rw
       - ${PHP_INI-./config/php/php.ini}:/usr/local/etc/php/php.ini
       - ${SSL_DIR-./config/ssl}:/etc/apache2/ssl/
       - ${VHOSTS_DIR-./config/vhosts}:/etc/apache2/sites-enabled
@@ -199,6 +203,7 @@ services:
       - database
     volumes:
       - ${DOCUMENT_ROOT-./www}:/var/www/html:rw
+      - ./:/lamp:rw
       - ${PHP_INI-./config/php/php.ini}:/usr/local/etc/php/php.ini
       - ${SSL_DIR-./config/ssl}:/etc/apache2/ssl/
       - ${VHOSTS_DIR-./config/vhosts}:/etc/apache2/sites-enabled
@@ -215,5 +220,73 @@ services:
       GITHUB_ORG: ${GITHUB_ORG-tim-it-diskominfobintan}
       GITHUB_TOKEN: ${GITHUB_TOKEN-}
       XDEBUG_CONFIG: "client_host=host.docker.internal remote_port=9083"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ==========================================
+  # PHP 8.4 (Port 8084)
+  # ==========================================
+  php84:
+    build:
+      context: ./bin/php84
+    container_name: "egov-php84"
+    ports:
+      - "8084:80"
+      - "8484:443"
+    links:
+      - database
+    volumes:
+      - ${DOCUMENT_ROOT-./www}:/var/www/html:rw
+      - ./:/lamp:rw
+      - ${PHP_INI-./config/php/php.ini}:/usr/local/etc/php/php.ini
+      - ${SSL_DIR-./config/ssl}:/etc/apache2/ssl/
+      - ${VHOSTS_DIR-./config/vhosts}:/etc/apache2/sites-enabled
+      - ./logs/php84:/var/log/apache2
+      - ./logs/xdebug-php84:/var/log/xdebug
+    environment:
+      APACHE_DOCUMENT_ROOT: ${APACHE_DOCUMENT_ROOT-/var/www/html}
+      PMA_PORT: ${HOST_MACHINE_PMA_PORT}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      HOST_MACHINE_MYSQL_PORT: ${HOST_MACHINE_MYSQL_PORT}
+      GITHUB_ORG: ${GITHUB_ORG-tim-it-diskominfobintan}
+      GITHUB_TOKEN: ${GITHUB_TOKEN-}
+      XDEBUG_CONFIG: "client_host=host.docker.internal remote_port=9084"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ==========================================
+  # PHP 8.5 (Port 8085)
+  # ==========================================
+  php85:
+    build:
+      context: ./bin/php85
+    container_name: "egov-php85"
+    ports:
+      - "8085:80"
+      - "8485:443"
+    links:
+      - database
+    volumes:
+      - ${DOCUMENT_ROOT-./www}:/var/www/html:rw
+      - ./:/lamp:rw
+      - ${PHP_INI-./config/php/php.ini}:/usr/local/etc/php/php.ini
+      - ${SSL_DIR-./config/ssl}:/etc/apache2/ssl/
+      - ${VHOSTS_DIR-./config/vhosts}:/etc/apache2/sites-enabled
+      - ./logs/php85:/var/log/apache2
+      - ./logs/xdebug-php85:/var/log/xdebug
+    environment:
+      APACHE_DOCUMENT_ROOT: ${APACHE_DOCUMENT_ROOT-/var/www/html}
+      PMA_PORT: ${HOST_MACHINE_PMA_PORT}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      HOST_MACHINE_MYSQL_PORT: ${HOST_MACHINE_MYSQL_PORT}
+      GITHUB_ORG: ${GITHUB_ORG-tim-it-diskominfobintan}
+      GITHUB_TOKEN: ${GITHUB_TOKEN-}
+      XDEBUG_CONFIG: "client_host=host.docker.internal remote_port=9085"
     extra_hosts:
       - "host.docker.internal:host-gateway"

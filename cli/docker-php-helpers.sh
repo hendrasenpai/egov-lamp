@@ -62,6 +62,8 @@ _get_egov_target_php() {
                 8.1) echo "php81"; return ;;
                 8.2) echo "php82"; return ;;
                 8.3) echo "php83"; return ;;
+                8.4) echo "php84"; return ;;
+                8.5) echo "php85"; return ;;
             esac
         fi
         dir="$(dirname "$dir")"

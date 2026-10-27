@@ -35,6 +35,9 @@ elif [ "$1" == "init" ]; then
 elif [ "$1" == "delete" ] || [ "$1" == "rm" ]; then
     shift
     exec bash "$SCRIPT_DIR/delete-project.sh" "$@"
+elif [ "$1" == "update" ] || [ "$1" == "upgrade" ]; then
+    shift
+    exec bash "$SCRIPT_DIR/update-lamp.sh" "$@"
 fi
 
 clear
@@ -45,7 +48,7 @@ echo -e "${CYAN}=====================================================${NC}"
 echo -e "Direktori : ${YELLOW}$ROOT_DIR${NC}"
 echo ""
 echo -e "Pilih aksi yang ingin dilakukan:"
-echo -e "  ${GREEN}1)${NC} Nyalakan PHP Tertentu (Pilih Versi: 7.4 - 8.3)"
+echo -e "  ${GREEN}1)${NC} Nyalakan PHP Tertentu (Pilih Versi: 7.4 - 8.5)"
 echo -e "  ${GREEN}2)${NC} Nyalakan Default / Rekomendasi (PHP 7.4 + DB + PMA)"
 echo -e "  ${GREEN}3)${NC} Nyalakan SEMUA Versi PHP Sekaligus"
 echo -e "  ${RED}4)${NC} Matikan Semua Container egov-lamp"
@@ -54,19 +57,22 @@ echo -e "  ${BLUE}6)${NC} Perbaiki Permission Folder (fix-perms)"
 echo -e "  ${CYAN}7)${NC} Clone Project dari GitHub (tim-it-diskominfobintan)"
 echo -e "  ${PURPLE}8)${NC} Inisialisasi Project Baru (Template core-laravel)"
 echo -e "  ${RED}9)${NC} Hapus Project Lokal & Database (Delete / Clean)"
+echo -e "  ${CYAN}10)${NC} 🚀 Cek & Update egov-lamp (Git Pull)"
 echo -e "  ${BOLD}0)${NC} Keluar"
 echo ""
-read -p "Masukkan pilihan [0-9]: " ACTION_CHOICE
+read -p "Masukkan pilihan [0-10]: " ACTION_CHOICE
 
 case $ACTION_CHOICE in
     1)
         echo ""
-        echo -e "Pilih versi PHP (bisa lebih dari satu, pisahkan spasi, contoh: 1 5):"
+        echo -e "Pilih versi PHP (bisa lebih dari satu, pisahkan spasi, contoh: 1 5 7):"
         echo -e "  ${BOLD}1)${NC} PHP 7.4 (Port :8074)"
         echo -e "  ${BOLD}2)${NC} PHP 8.0 (Port :8080)"
         echo -e "  ${BOLD}3)${NC} PHP 8.1 (Port :8081)"
         echo -e "  ${BOLD}4)${NC} PHP 8.2 (Port :8082)"
         echo -e "  ${BOLD}5)${NC} PHP 8.3 (Port :8083)"
+        echo -e "  ${BOLD}6)${NC} PHP 8.4 (Port :8084)"
+        echo -e "  ${BOLD}7)${NC} PHP 8.5 (Port :8085)"
         echo ""
         read -p "Pilihan versi: " -a VERSIONS
 
@@ -78,6 +84,8 @@ case $ACTION_CHOICE in
                 3) SERVICES="$SERVICES php81" ;;
                 4) SERVICES="$SERVICES php82" ;;
                 5) SERVICES="$SERVICES php83" ;;
+                6) SERVICES="$SERVICES php84" ;;
+                7) SERVICES="$SERVICES php85" ;;
             esac
         done
 
@@ -101,7 +109,7 @@ case $ACTION_CHOICE in
         ;;
     3)
         echo ""
-        echo -e "${YELLOW}Menyalakan SEMUA container (PHP 7.4, 8.0, 8.1, 8.2, 8.3)...${NC}"
+        echo -e "${YELLOW}Menyalakan SEMUA container (PHP 7.4, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5)...${NC}"
         docker compose up -d
         echo ""
         echo -e "${GREEN}✔ Semua container aktif!${NC}"
@@ -162,6 +170,9 @@ case $ACTION_CHOICE in
         ;;
     9)
         bash "$SCRIPT_DIR/delete-project.sh"
+        ;;
+    10|[Uu]|update)
+        bash "$SCRIPT_DIR/update-lamp.sh"
         ;;
     0)
         exit 0
