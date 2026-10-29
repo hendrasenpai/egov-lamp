@@ -1775,6 +1775,12 @@ foreach ($projects as $p) {
                                 <button class="btn btn-sm btn-outline-warning" onclick="openTokenModal()">Atur Token</button>
                             </div>
                         </div>
+                        <div id="githubStatsBar" class="d-flex align-items-center justify-content-between p-2 px-3 mb-3 rounded border border-secondary border-opacity-25 d-none" style="background: rgba(255,255,255,0.03); font-size: 0.82rem;">
+                            <div id="githubStatsText" class="text-secondary"></div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" onclick="loadGitHubRepos(true)" title="Paksa segarkan daftar dari GitHub API">
+                                <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                            </button>
+                        </div>
                         <div class="row g-3" id="githubGrid">
                             <!-- Injected dynamically via JS -->
                         </div>
@@ -3038,6 +3044,8 @@ foreach ($projects as $p) {
                 loadingEl.classList.remove('d-none');
                 emptyEl.classList.add('d-none');
                 errorEl.classList.add('d-none');
+                const statsBar = document.getElementById('githubStatsBar');
+                if (statsBar) statsBar.classList.add('d-none');
                 gridEl.innerHTML = '';
             }
 
@@ -3088,6 +3096,19 @@ foreach ($projects as $p) {
                     }
 
                     emptyEl.classList.add('d-none');
+                    const statsBar = document.getElementById('githubStatsBar');
+                    const statsText = document.getElementById('githubStatsText');
+                    if (statsBar && statsText) {
+                        statsBar.classList.remove('d-none');
+                        statsText.innerHTML = `
+                            <i class="bi bi-info-circle me-1 text-info"></i>
+                            Menampilkan <strong class="text-light">${data.total_uncloned}</strong> repo yang belum di-clone 
+                            <span class="text-secondary mx-1">•</span> 
+                            <strong class="text-success">${data.total_cloned}</strong> sudah ada di lokal
+                            <span class="text-secondary mx-1">•</span> 
+                            Total <strong class="text-info">${data.total_remote}</strong> di GitHub
+                        `;
+                    }
                     renderGitHubRepos(data.repos);
                 })
                 .catch(err => {
