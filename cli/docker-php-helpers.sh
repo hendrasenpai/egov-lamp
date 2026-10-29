@@ -133,7 +133,7 @@ fix-perms() {
         chmod 777 "$_EGOV_ROOT/www" 2>/dev/null
         for p in "$_EGOV_ROOT/www"/*; do
             if [ -d "$p" ]; then
-                chmod 777 "$p" 2>/dev/null
+                chmod -R a+rwX "$p" 2>/dev/null
                 touch "$p/.ws" 2>/dev/null
                 chmod 666 "$p/.ws" 2>/dev/null
                 [ -d "$p/storage" ] && chmod -R 777 "$p/storage" 2>/dev/null

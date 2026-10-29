@@ -89,6 +89,7 @@ else
         echo -e "${RED}Gagal melakukan clone repository!${NC}"
         echo -e "${YELLOW}Tips Pemecahan Masalah:${NC}"
         echo -e "1. Pastikan nama repository benar di organisasi tim-it-diskominfobintan."
+        echo -e "   (Tips: Beberapa repository Disnaker menggunakan suffix '_disnaker', misal: 'bipartit_disnaker', 'serikat_disnaker', 'pelatihan_disnaker')."
         echo -e "2. Jika repository private, pastikan akun GitHub Anda sudah terdaftar sebagai anggota tim."
         echo -e "3. Jika menggunakan SSH, pastikan SSH Key sudah terdaftar di GitHub (lihat FAQ Q9 di README.md)."
         echo -e "4. Anda juga bisa mencoba clone via HTTPS jika SSH terkendala."

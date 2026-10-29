@@ -56,6 +56,14 @@ function ensure_code_workspace($project) {
         @file_put_contents($ws_file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         @chmod($ws_file, 0666);
     }
+    // Pastikan .git/info/exclude mengecualikan file workspace lokal jika ini adalah repo git
+    $git_exclude = "./$project/.git/info/exclude";
+    if (file_exists($git_exclude)) {
+        $exclude_content = @file_get_contents($git_exclude) ?: '';
+        if (strpos($exclude_content, '.ws') === false) {
+            @file_put_contents($git_exclude, "\n# LAMP Dashboard Local Files\n.ws\n*.code-workspace\n", FILE_APPEND);
+        }
+    }
     return true;
 }
 
@@ -174,6 +182,9 @@ function run_laravel_auto_setup($dir, $repo, $options, &$steps = []) {
         }
 
         @exec("chmod -R 777 " . escapeshellarg($dir) . " 2>/dev/null");
+        if (is_dir("$dir/.git")) {
+            @exec("git -C " . escapeshellarg($dir) . " config core.fileMode false 2>/dev/null");
+        }
 
         $steps[] = [
             'step' => 'Composer Install',
@@ -335,6 +346,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     @file_put_contents("./$name/.ws", $content);
     @chmod("./$name/.ws", 0666);
     ensure_code_workspace($name);
+    if (is_dir("./$name/.git")) {
+        @exec("git -C " . escapeshellarg("./$name") . " config core.fileMode false 2>&1");
+    }
 
     // Auto setup
     $options = [
@@ -408,9 +422,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exec("rm -rf " . escapeshellarg("./$project") . " 2>&1", $output, $ret);
 
     if ($ret !== 0 || is_dir("./$project")) {
+        $err_detail = implode("\n", $output) ?: 'Permission denied';
         echo json_encode([
             'success' => false, 
-            'message' => 'Gagal menghapus folder project: ' . (implode("\n", $output) ?: 'Permission denied')
+            'message' => "Gagal menghapus folder project ({$err_detail}). Subfolder dimiliki oleh user host (permission 755). Silakan jalankan di terminal: rm -rf www/{$project} atau jalankan 'fix-perms'."
         ]);
         exit;
     }
@@ -445,7 +460,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_github_repos') {
     }
 
     if (!$data) {
-        $url = "https://api.github.com/orgs/{$config['org']}/repos?per_page=100&sort=updated";
         $headers = [
             'User-Agent: egov-lamp-dashboard',
             'Accept: application/vnd.github.v3+json'
@@ -458,31 +472,61 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_github_repos') {
             'http' => [
                 'method' => 'GET',
                 'header' => $headers,
-                'timeout' => 12,
+                'timeout' => 15,
                 'ignore_errors' => true
             ]
         ];
         $context = stream_context_create($opts);
-        $response = @file_get_contents($url, false, $context);
-        
-        if ($response) {
-            $json = json_decode($response, true);
-            if (is_array($json) && !isset($json['message'])) {
-                $data = $json;
-                @file_put_contents($cache_file, $response);
+
+        $all_repos = [];
+        $page = 1;
+        $max_pages = 10; // Mendukung hingga 1000 repositori organisasi
+
+        while ($page <= $max_pages) {
+            $url = "https://api.github.com/orgs/{$config['org']}/repos?per_page=100&page={$page}&sort=updated";
+            $response = @file_get_contents($url, false, $context);
+            
+            if ($response) {
+                $json = json_decode($response, true);
+                if (is_array($json) && !isset($json['message'])) {
+                    if (empty($json)) {
+                        break;
+                    }
+                    $all_repos = array_merge($all_repos, $json);
+                    // Jika data yang diterima kurang dari 100, berarti ini halaman terakhir
+                    if (count($json) < 100) {
+                        break;
+                    }
+                } else {
+                    if ($page === 1) {
+                        $err = $json['message'] ?? 'Gagal mengambil data dari GitHub.';
+                        echo json_encode([
+                            'success' => false,
+                            'message' => $err,
+                            'rate_limit' => strpos($err, 'rate limit') !== false,
+                            'has_token' => !empty($config['token']),
+                            'org' => $config['org']
+                        ]);
+                        exit;
+                    }
+                    // Jika halaman berikutnya bermasalah, gunakan hasil yang sudah berhasil diambil
+                    break;
+                }
             } else {
-                $err = $json['message'] ?? 'Gagal mengambil data dari GitHub.';
-                echo json_encode([
-                    'success' => false,
-                    'message' => $err,
-                    'rate_limit' => strpos($err, 'rate limit') !== false,
-                    'has_token' => !empty($config['token']),
-                    'org' => $config['org']
-                ]);
-                exit;
+                if ($page === 1) {
+                    echo json_encode(['success' => false, 'message' => 'Tidak dapat terhubung ke GitHub API.']);
+                    exit;
+                }
+                break;
             }
+            $page++;
+        }
+
+        if (!empty($all_repos)) {
+            $data = $all_repos;
+            @file_put_contents($cache_file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         } else {
-            echo json_encode(['success' => false, 'message' => 'Tidak dapat terhubung ke GitHub API.']);
+            echo json_encode(['success' => false, 'message' => 'Tidak ada repository yang ditemukan atau gagal terhubung ke GitHub API.']);
             exit;
         }
     }
@@ -570,6 +614,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         'status' => 'ok',
         'message' => "Repository {$repo} berhasil di-clone."
     ];
+
+    // Otomatisasi Git Config Pasca-Clone: matikan pelacakan filemode agar chmod server tidak memicu false changes di Git
+    if (is_dir("./$repo/.git")) {
+        @exec("git -C " . escapeshellarg("./$repo") . " config core.fileMode false 2>&1");
+    }
 
     // Deteksi Framework Pasca-Clone
     $is_laravel = file_exists("./$repo/artisan") && file_exists("./$repo/public/index.php");
