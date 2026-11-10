@@ -38,6 +38,11 @@ elif [ "$1" == "delete" ] || [ "$1" == "rm" ]; then
 elif [ "$1" == "update" ] || [ "$1" == "upgrade" ]; then
     shift
     exec bash "$SCRIPT_DIR/update-lamp.sh" "$@"
+elif [ "$1" == "fix-perms" ] || [ "$1" == "fix" ]; then
+    shift
+    source "$SCRIPT_DIR/docker-php-helpers.sh"
+    fix-perms "$@"
+    exit $?
 fi
 
 clear
@@ -77,15 +82,16 @@ case $ACTION_CHOICE in
         read -p "Pilihan versi: " -a VERSIONS
 
         SERVICES="database phpmyadmin redis"
+        DASH_PORTS=()
         for v in "${VERSIONS[@]}"; do
             case $v in
-                1) SERVICES="$SERVICES php74" ;;
-                2) SERVICES="$SERVICES php80" ;;
-                3) SERVICES="$SERVICES php81" ;;
-                4) SERVICES="$SERVICES php82" ;;
-                5) SERVICES="$SERVICES php83" ;;
-                6) SERVICES="$SERVICES php84" ;;
-                7) SERVICES="$SERVICES php85" ;;
+                1|7.4|74|php74) SERVICES="$SERVICES php74"; DASH_PORTS+=("8074") ;;
+                2|8.0|80|php80) SERVICES="$SERVICES php80"; DASH_PORTS+=("8080") ;;
+                3|8.1|81|php81) SERVICES="$SERVICES php81"; DASH_PORTS+=("8081") ;;
+                4|8.2|82|php82) SERVICES="$SERVICES php82"; DASH_PORTS+=("8082") ;;
+                5|8.3|83|php83) SERVICES="$SERVICES php83"; DASH_PORTS+=("8083") ;;
+                6|8.4|84|php84) SERVICES="$SERVICES php84"; DASH_PORTS+=("8084") ;;
+                7|8.5|85|php85) SERVICES="$SERVICES php85"; DASH_PORTS+=("8085") ;;
             esac
         done
 
@@ -94,7 +100,16 @@ case $ACTION_CHOICE in
         docker compose up -d $SERVICES
         echo ""
         echo -e "${GREEN}✔ Berhasil dinyalakan!${NC}"
-        echo -e "Dashboard Web : ${CYAN}http://localhost:8083${NC} (atau sesuai port PHP)"
+        if [ ${#DASH_PORTS[@]} -eq 1 ]; then
+            echo -e "Dashboard Web : ${CYAN}http://localhost:${DASH_PORTS[0]}${NC}"
+        elif [ ${#DASH_PORTS[@]} -gt 1 ]; then
+            echo -e "Dashboard Web :"
+            for p in "${DASH_PORTS[@]}"; do
+                echo -e "  - ${CYAN}http://localhost:${p}${NC}"
+            done
+        else
+            echo -e "Dashboard Web : ${CYAN}http://localhost:8085${NC} (atau sesuai port PHP yang aktif)"
+        fi
         echo -e "phpMyAdmin    : ${CYAN}http://localhost:8888${NC}"
         echo -e "MariaDB Port  : ${CYAN}3306${NC} (user: root/docker, pass: tiger/docker)"
         ;;
@@ -113,7 +128,9 @@ case $ACTION_CHOICE in
         docker compose up -d
         echo ""
         echo -e "${GREEN}✔ Semua container aktif!${NC}"
-        echo -e "Dashboard Web : ${CYAN}http://localhost:8083${NC}"
+        echo -e "Dashboard Web : ${CYAN}http://localhost:8085${NC} (tersedia di semua port :8074 s/d :8085)"
+        echo -e "phpMyAdmin    : ${CYAN}http://localhost:8888${NC}"
+        echo -e "MariaDB Port  : ${CYAN}3306${NC} (user: root/docker, pass: tiger/docker)"
         ;;
     4)
         echo ""
@@ -128,39 +145,9 @@ case $ACTION_CHOICE in
         ;;
     6)
         echo ""
-        echo -e "${YELLOW}Memperbaiki file permissions...${NC}"
-        # 1. Perbaiki di host lokal terlebih dahulu
-        if [ -d "$ROOT_DIR/www" ]; then
-            chmod 777 "$ROOT_DIR/www" 2>/dev/null
-            for p in "$ROOT_DIR/www"/*; do
-                if [ -d "$p" ]; then
-                    chmod 777 "$p" 2>/dev/null
-                    touch "$p/.ws" 2>/dev/null
-                    chmod 666 "$p/.ws" 2>/dev/null
-                    [ -d "$p/storage" ] && chmod -R 777 "$p/storage" 2>/dev/null
-                    [ -d "$p/bootstrap/cache" ] && chmod -R 777 "$p/bootstrap/cache" 2>/dev/null
-                fi
-            done
-        fi
-
-        # 2. Perbaiki juga di dalam container jika container sedang aktif
-        CONTAINER=$(docker ps --format '{{.Names}}' | grep -E '^egov-php' | head -n 1)
-        if [ -n "$CONTAINER" ]; then
-            docker exec "$CONTAINER" bash -c '
-                chmod -R 777 /etc/apache2/sites-enabled 2>/dev/null
-                chmod 777 /var/www/html 2>/dev/null
-                for d in /var/www/html/*/ ; do
-                    chmod 777 "$d" 2>/dev/null
-                    touch "$d/.ws" 2>/dev/null
-                    chmod 666 "$d/.ws" 2>/dev/null
-                    if [ -d "$d/storage" ] || [ -d "$d/bootstrap/cache" ]; then
-                        chmod -R 777 "$d/storage" "$d/bootstrap/cache" 2>/dev/null
-                    fi
-                    echo "✔ Fixed: $(basename "$d")"
-                done
-            '
-        fi
-        echo -e "${GREEN}✔ Selesai! Seluruh permission folder project, storage, cache & .ws sudah aman.${NC}"
+        source "$SCRIPT_DIR/docker-php-helpers.sh"
+        read -p "Masukkan nama folder project (kosongkan untuk semua project): " TARGET_PERM
+        fix-perms "$TARGET_PERM"
         ;;
     7)
         bash "$SCRIPT_DIR/clone-project.sh"

@@ -125,41 +125,90 @@ artisan81() { _run_egov_docker "php81" php artisan "$@"; }
 artisan82() { _run_egov_docker "php82" php artisan "$@"; }
 artisan83() { _run_egov_docker "php83" php artisan "$@"; }
 
-# Fix permissions untuk Laravel storage, cache, .ws, dan vhosts
+# Fix permissions untuk seluruh project atau project tertentu (mendukung Laravel, CI3, Native)
 fix-perms() {
-    echo -e "\033[1;33mMemperbaiki permission storage, cache, .ws, dan folder project...\033[0m"
+    local target="$1"
+    target="${target#www/}"
+    target="${target%/}"
+
+    if [ -n "$target" ]; then
+        if [ ! -d "$_EGOV_ROOT/www/$target" ]; then
+            echo -e "\033[0;31mError: Folder project 'www/$target' tidak ditemukan!\033[0m"
+            return 1
+        fi
+        echo -e "\033[1;33mMemperbaiki permission untuk project: \033[1m$target\033[0;33m...\033[0m"
+    else
+        echo -e "\033[1;33mMemperbaiki permission seluruh project di www/...\033[0m"
+    fi
+
     # 1. Perbaiki di host lokal jika direktori www ada
     if [ -d "$_EGOV_ROOT/www" ]; then
         chmod 777 "$_EGOV_ROOT/www" 2>/dev/null
-        for p in "$_EGOV_ROOT/www"/*; do
-            if [ -d "$p" ]; then
-                chmod -R a+rwX "$p" 2>/dev/null
-                touch "$p/.ws" 2>/dev/null
-                chmod 666 "$p/.ws" 2>/dev/null
-                [ -d "$p/storage" ] && chmod -R 777 "$p/storage" 2>/dev/null
-                [ -d "$p/bootstrap/cache" ] && chmod -R 777 "$p/bootstrap/cache" 2>/dev/null
-            fi
-        done
+        if [ -n "$target" ]; then
+            local p="$_EGOV_ROOT/www/$target"
+            chmod -R a+rwX "$p" 2>/dev/null
+            touch "$p/.ws" 2>/dev/null
+            chmod 666 "$p/.ws" 2>/dev/null
+            [ -d "$p/storage" ] && chmod -R 777 "$p/storage" 2>/dev/null
+            [ -d "$p/bootstrap/cache" ] && chmod -R 777 "$p/bootstrap/cache" 2>/dev/null
+            [ -d "$p/.git" ] && git -C "$p" config core.fileMode false 2>/dev/null
+        else
+            for p in "$_EGOV_ROOT/www"/*; do
+                if [ -d "$p" ]; then
+                    chmod -R a+rwX "$p" 2>/dev/null
+                    touch "$p/.ws" 2>/dev/null
+                    chmod 666 "$p/.ws" 2>/dev/null
+                    [ -d "$p/storage" ] && chmod -R 777 "$p/storage" 2>/dev/null
+                    [ -d "$p/bootstrap/cache" ] && chmod -R 777 "$p/bootstrap/cache" 2>/dev/null
+                    [ -d "$p/.git" ] && git -C "$p" config core.fileMode false 2>/dev/null
+                fi
+            done
+        fi
     fi
 
-    # 2. Perbaiki di dalam container
+    # 2. Perbaiki di dalam container (super user root agar file milik www-data/UID 33 terbuka)
     local container=$(docker ps --format '{{.Names}}' | grep -E '^egov-php' | head -n 1)
-    if [ -n "$container" ]; then
-        docker exec "$container" bash -c '
-            chmod -R 777 /etc/apache2/sites-enabled 2>/dev/null
-            chmod 777 /var/www/html 2>/dev/null
-            for d in /var/www/html/*/ ; do
-                chmod 777 "$d" 2>/dev/null
-                touch "$d/.ws" 2>/dev/null
-                chmod 666 "$d/.ws" 2>/dev/null
-                if [ -d "$d/storage" ] || [ -d "$d/bootstrap/cache" ]; then
-                    chmod -R 777 "$d/storage" "$d/bootstrap/cache" 2>/dev/null
-                fi
-                echo "✔ Fixed: $(basename "$d")"
-            done
-        '
+    if [ -z "$container" ]; then
+        echo -e "\033[1;33mContainer PHP belum aktif. Menyalakan egov-php83 untuk perbaikan permission...\033[0m"
+        (cd "$_EGOV_ROOT" && docker compose up -d php83 2>/dev/null)
+        container="egov-php83"
     fi
-    echo -e "\033[0;32mSelesai! Semua permission sudah aman.\033[0m"
+
+    if [ -n "$container" ]; then
+        if [ -n "$target" ]; then
+            docker exec "$container" bash -c "
+                chmod 777 /var/www/html 2>/dev/null
+                d='/var/www/html/$target'
+                if [ -d \"\$d\" ]; then
+                    chmod -R a+rwX \"\$d\" 2>/dev/null
+                    touch \"\$d/.ws\" 2>/dev/null
+                    chmod 666 \"\$d/.ws\" 2>/dev/null
+                    if [ -d \"\$d/storage\" ] || [ -d \"\$d/bootstrap/cache\" ]; then
+                        chmod -R 777 \"\$d/storage\" \"\$d/bootstrap/cache\" 2>/dev/null
+                    fi
+                    [ -d \"\$d/.git\" ] && git -C \"\$d\" config core.fileMode false 2>/dev/null
+                    echo \"✔ Fixed permission: $target\"
+                fi
+            "
+        else
+            docker exec "$container" bash -c '
+                chmod -R 777 /etc/apache2/sites-enabled 2>/dev/null
+                chmod 777 /var/www/html 2>/dev/null
+                for d in /var/www/html/*/ ; do
+                    chmod -R a+rwX "$d" 2>/dev/null
+                    touch "$d/.ws" 2>/dev/null
+                    chmod 666 "$d/.ws" 2>/dev/null
+                    if [ -d "$d/storage" ] || [ -d "$d/bootstrap/cache" ]; then
+                        chmod -R 777 "$d/storage" "$d/bootstrap/cache" 2>/dev/null
+                    fi
+                    [ -d "$d/.git" ] && git -C "$d" config core.fileMode false 2>/dev/null
+                    echo "✔ Fixed permission: $(basename "$d")"
+                done
+                [ -d /var/www/html/.composer_cache ] && chmod -R a+rwX /var/www/html/.composer_cache 2>/dev/null
+            '
+        fi
+    fi
+    echo -e "\033[0;32mSelesai! Seluruh hak akses berkas (gembok) berhasil dibuka.\033[0m"
 }
 
 # Helper Clone Project dari Organisasi Diskominfo Bintan

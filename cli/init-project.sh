@@ -80,19 +80,19 @@ if [ -z "$PHP_INPUT" ]; then
     echo -e "  ${BOLD}5)${NC} PHP 8.1 (Port :8081)"
     read -p "Pilihan versi [1-5] (default 1): " PHP_CHOICE
     case $PHP_CHOICE in
-        2|8.4|84) PHP_VER="8.4"; PHP_CONTAINER="php84"; PORT="8084" ;;
-        3|8.5|85) PHP_VER="8.5"; PHP_CONTAINER="php85"; PORT="8085" ;;
-        4|8.2|82) PHP_VER="8.2"; PHP_CONTAINER="php82"; PORT="8082" ;;
-        5|8.1|81) PHP_VER="8.1"; PHP_CONTAINER="php81"; PORT="8081" ;;
-        *)        PHP_VER="8.3"; PHP_CONTAINER="php83"; PORT="8083" ;;
+        2|8.4|84|php84) PHP_VER="8.4"; PHP_CONTAINER="php84"; PORT="8084" ;;
+        3|8.5|85|php85) PHP_VER="8.5"; PHP_CONTAINER="php85"; PORT="8085" ;;
+        4|8.2|82|php82) PHP_VER="8.2"; PHP_CONTAINER="php82"; PORT="8082" ;;
+        5|8.1|81|php81) PHP_VER="8.1"; PHP_CONTAINER="php81"; PORT="8081" ;;
+        *)              PHP_VER="8.3"; PHP_CONTAINER="php83"; PORT="8083" ;;
     esac
 else
     case $PHP_INPUT in
-        2|8.4|84) PHP_VER="8.4"; PHP_CONTAINER="php84"; PORT="8084" ;;
-        3|8.5|85) PHP_VER="8.5"; PHP_CONTAINER="php85"; PORT="8085" ;;
-        4|8.2|82) PHP_VER="8.2"; PHP_CONTAINER="php82"; PORT="8082" ;;
-        5|8.1|81) PHP_VER="8.1"; PHP_CONTAINER="php81"; PORT="8081" ;;
-        *)        PHP_VER="8.3"; PHP_CONTAINER="php83"; PORT="8083" ;;
+        2|8.4|84|php84) PHP_VER="8.4"; PHP_CONTAINER="php84"; PORT="8084" ;;
+        3|8.5|85|php85) PHP_VER="8.5"; PHP_CONTAINER="php85"; PORT="8085" ;;
+        4|8.2|82|php82) PHP_VER="8.2"; PHP_CONTAINER="php82"; PORT="8082" ;;
+        5|8.1|81|php81) PHP_VER="8.1"; PHP_CONTAINER="php81"; PORT="8081" ;;
+        *)              PHP_VER="8.3"; PHP_CONTAINER="php83"; PORT="8083" ;;
     esac
 fi
 

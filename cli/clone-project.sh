@@ -134,23 +134,25 @@ if [ -z "$PHP_INPUT" ]; then
     read -p "Pilihan versi [1-7] (default $DEFAULT_OPT): " PHP_CHOICE
     [ -z "$PHP_CHOICE" ] && PHP_CHOICE="$DEFAULT_OPT"
     case $PHP_CHOICE in
-        1|7.4|74) PHP_VER="7.4"; PHP_CONTAINER="php74"; PORT="8074" ;;
-        2|8.0|80) PHP_VER="8.0"; PHP_CONTAINER="php80"; PORT="8080" ;;
-        3|8.1|81) PHP_VER="8.1"; PHP_CONTAINER="php81"; PORT="8081" ;;
-        5|8.3|83) PHP_VER="8.3"; PHP_CONTAINER="php83"; PORT="8083" ;;
-        6|8.4|84) PHP_VER="8.4"; PHP_CONTAINER="php84"; PORT="8084" ;;
-        7|8.5|85) PHP_VER="8.5"; PHP_CONTAINER="php85"; PORT="8085" ;;
-        *)        PHP_VER="8.2"; PHP_CONTAINER="php82"; PORT="8082" ;;
+        1|7.4|74|php74) PHP_VER="7.4"; PHP_CONTAINER="php74"; PORT="8074" ;;
+        2|8.0|80|php80) PHP_VER="8.0"; PHP_CONTAINER="php80"; PORT="8080" ;;
+        3|8.1|81|php81) PHP_VER="8.1"; PHP_CONTAINER="php81"; PORT="8081" ;;
+        4|8.2|82|php82) PHP_VER="8.2"; PHP_CONTAINER="php82"; PORT="8082" ;;
+        5|8.3|83|php83) PHP_VER="8.3"; PHP_CONTAINER="php83"; PORT="8083" ;;
+        6|8.4|84|php84) PHP_VER="8.4"; PHP_CONTAINER="php84"; PORT="8084" ;;
+        7|8.5|85|php85) PHP_VER="8.5"; PHP_CONTAINER="php85"; PORT="8085" ;;
+        *)              PHP_VER="8.2"; PHP_CONTAINER="php82"; PORT="8082" ;;
     esac
 else
     case $PHP_INPUT in
-        1|7.4|74) PHP_VER="7.4"; PHP_CONTAINER="php74"; PORT="8074" ;;
-        2|8.0|80) PHP_VER="8.0"; PHP_CONTAINER="php80"; PORT="8080" ;;
-        3|8.1|81) PHP_VER="8.1"; PHP_CONTAINER="php81"; PORT="8081" ;;
-        5|8.3|83) PHP_VER="8.3"; PHP_CONTAINER="php83"; PORT="8083" ;;
-        6|8.4|84) PHP_VER="8.4"; PHP_CONTAINER="php84"; PORT="8084" ;;
-        7|8.5|85) PHP_VER="8.5"; PHP_CONTAINER="php85"; PORT="8085" ;;
-        *)        PHP_VER="8.2"; PHP_CONTAINER="php82"; PORT="8082" ;;
+        1|7.4|74|php74) PHP_VER="7.4"; PHP_CONTAINER="php74"; PORT="8074" ;;
+        2|8.0|80|php80) PHP_VER="8.0"; PHP_CONTAINER="php80"; PORT="8080" ;;
+        3|8.1|81|php81) PHP_VER="8.1"; PHP_CONTAINER="php81"; PORT="8081" ;;
+        4|8.2|82|php82) PHP_VER="8.2"; PHP_CONTAINER="php82"; PORT="8082" ;;
+        5|8.3|83|php83) PHP_VER="8.3"; PHP_CONTAINER="php83"; PORT="8083" ;;
+        6|8.4|84|php84) PHP_VER="8.4"; PHP_CONTAINER="php84"; PORT="8084" ;;
+        7|8.5|85|php85) PHP_VER="8.5"; PHP_CONTAINER="php85"; PORT="8085" ;;
+        *)              PHP_VER="8.2"; PHP_CONTAINER="php82"; PORT="8082" ;;
     esac
 fi
 

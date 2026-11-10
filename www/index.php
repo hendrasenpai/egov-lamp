@@ -144,8 +144,8 @@ function run_laravel_auto_setup($dir, $repo, $options, &$steps = []) {
         ];
     }
 
-    // 2. Fix Permissions
-    @chmod($dir, 0777);
+    // 2. Fix Permissions: berikan hak akses penuh secara rekursif agar user host (IDE/Editor) tidak terkunci (gembok)
+    @exec("chmod -R a+rwX " . escapeshellarg($dir) . " 2>/dev/null");
     if (is_dir("$dir/storage")) {
         exec("chmod -R 777 " . escapeshellarg("$dir/storage") . " 2>/dev/null");
     }
@@ -619,6 +619,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if (is_dir("./$repo/.git")) {
         @exec("git -C " . escapeshellarg("./$repo") . " config core.fileMode false 2>&1");
     }
+    // Langsung berikan akses tulis penuh ke seluruh subfolder/file untuk user host (menghindari gembok)
+    @exec("chmod -R a+rwX " . escapeshellarg("./$repo") . " 2>/dev/null");
 
     // Deteksi Framework Pasca-Clone
     $is_laravel = file_exists("./$repo/artisan") && file_exists("./$repo/public/index.php");
@@ -906,6 +908,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 $excluded = ['.', '..', 'assets', '.DS_Store', 'vendor', 'test_db.php', 'test_db_pdo.php', 'phpinfo.php', 'index.php', 'favicon.png', 'composer.json', 'composer.lock', '.github_cache.json', '.github_token', '.composer_cache', '.lamp_version.json', '.lamp_update_cache.json'];
 
 $php_version = phpversion();
+$current_php_short = substr($php_version, 0, 3);
 $apache_version = function_exists('apache_get_version') ? apache_get_version() : 'Apache Server';
 $pma_port = getenv('PMA_PORT') ?: '8888';
 
@@ -919,6 +922,7 @@ $php_port_map = [
     '8.4' => '8084',
     '8.5' => '8085'
 ];
+$current_port = $php_port_map[$current_php_short] ?? '8085';
 
 // Scan active project directories
 $all_items = scandir('./');
@@ -2118,11 +2122,11 @@ foreach ($projects as $p) {
                         <div class="col-md-5">
                             <label class="form-label text-secondary small fw-bold">VERSI PHP</label>
                             <select class="form-select bg-dark text-light border-secondary" id="initProjectPhp">
-                                <option value="8.3" selected>PHP 8.3 (Port 8083) - Rekomendasi</option>
-                                <option value="8.4">PHP 8.4 (Port 8084) - Modern</option>
-                                <option value="8.5">PHP 8.5 (Port 8085) - Latest</option>
-                                <option value="8.2">PHP 8.2 (Port 8082)</option>
-                                <option value="8.1">PHP 8.1 (Port 8081)</option>
+                                <option value="8.5" <?= ($current_php_short === '8.5') ? 'selected' : '' ?>>PHP 8.5 (Port 8085) - Latest</option>
+                                <option value="8.4" <?= ($current_php_short === '8.4') ? 'selected' : '' ?>>PHP 8.4 (Port 8084) - Modern</option>
+                                <option value="8.3" <?= ($current_php_short === '8.3' || !in_array($current_php_short, ['8.1', '8.2', '8.4', '8.5'])) ? 'selected' : '' ?>>PHP 8.3 (Port 8083) - Rekomendasi</option>
+                                <option value="8.2" <?= ($current_php_short === '8.2') ? 'selected' : '' ?>>PHP 8.2 (Port 8082)</option>
+                                <option value="8.1" <?= ($current_php_short === '8.1') ? 'selected' : '' ?>>PHP 8.1 (Port 8081)</option>
                             </select>
                         </div>
                     </div>
@@ -2215,13 +2219,13 @@ foreach ($projects as $p) {
                     <div class="mb-3">
                         <label class="form-label text-secondary small fw-bold">PILIH VERSI PHP AWAL</label>
                         <select class="form-select bg-dark text-light border-secondary" id="cloneSelectPhp">
-                            <option value="7.4">PHP 7.4 (Port 8074) - Rekomendasi CodeIgniter 3 / Legacy</option>
-                            <option value="8.0">PHP 8.0 (Port 8080)</option>
-                            <option value="8.1">PHP 8.1 (Port 8081)</option>
-                            <option value="8.2">PHP 8.2 (Port 8082)</option>
-                            <option value="8.3" selected>PHP 8.3 (Port 8083) - Rekomendasi Laravel Terbaru</option>
-                            <option value="8.4">PHP 8.4 (Port 8084) - Modern</option>
-                            <option value="8.5">PHP 8.5 (Port 8085) - Latest</option>
+                            <option value="7.4" <?= ($current_php_short === '7.4') ? 'selected' : '' ?>>PHP 7.4 (Port 8074) - Rekomendasi CodeIgniter 3 / Legacy</option>
+                            <option value="8.0" <?= ($current_php_short === '8.0') ? 'selected' : '' ?>>PHP 8.0 (Port 8080)</option>
+                            <option value="8.1" <?= ($current_php_short === '8.1') ? 'selected' : '' ?>>PHP 8.1 (Port 8081)</option>
+                            <option value="8.2" <?= ($current_php_short === '8.2') ? 'selected' : '' ?>>PHP 8.2 (Port 8082)</option>
+                            <option value="8.3" <?= ($current_php_short === '8.3' || !in_array($current_php_short, ['7.4', '8.0', '8.1', '8.2', '8.4', '8.5'])) ? 'selected' : '' ?>>PHP 8.3 (Port 8083) - Rekomendasi Laravel Terbaru</option>
+                            <option value="8.4" <?= ($current_php_short === '8.4') ? 'selected' : '' ?>>PHP 8.4 (Port 8084) - Modern</option>
+                            <option value="8.5" <?= ($current_php_short === '8.5') ? 'selected' : '' ?>>PHP 8.5 (Port 8085) - Latest</option>
                         </select>
                         <small class="text-muted">Untuk CodeIgniter 3, disarankan PHP 7.4 (sistem akan otomatis mendeteksi).</small>
                     </div>
@@ -2480,6 +2484,18 @@ foreach ($projects as $p) {
 
         function checkContainerBeforeOpen(e, port, phpVer) {
             if (activePorts[port] === false) {
+                const currentRunningPort = window.location.port || '80';
+                if (currentRunningPort && currentRunningPort !== port && activePorts[currentRunningPort]) {
+                    if (confirm(`⚠️ PERHATIAN:\nContainer PHP ${phpVer} (Port ${port}) sedang TIDAK AKTIF (Offline)!\n\nNamun Anda sedang berada di Dashboard Port :${currentRunningPort}.\nApakah Anda ingin membuka project ini menggunakan Port :${currentRunningPort} yang sedang aktif?`)) {
+                        try {
+                            const originalUrl = new URL(e.currentTarget.href);
+                            originalUrl.port = currentRunningPort;
+                            window.open(originalUrl.toString(), '_blank');
+                            e.preventDefault();
+                            return false;
+                        } catch (err) {}
+                    }
+                }
                 if (!confirm(`⚠️ PERHATIAN:\nContainer PHP ${phpVer} (Port ${port}) sedang TIDAK AKTIF (Offline)!\n\nUntuk menyalakannya, jalankan perintah 'egov' di terminal lalu pilih nomor versi PHP ${phpVer}.\n\nTetap buka halaman sekarang?`)) {
                     e.preventDefault();
                     return false;
