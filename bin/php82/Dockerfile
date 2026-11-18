@@ -99,5 +99,14 @@ RUN a2enmod ssl && a2enmod rewrite
 # Enable apache modules
 RUN a2enmod rewrite headers
 
+# OCR engine (Tesseract + bahasa Indonesia) — dipakai fitur Import KK via OCR
+RUN apt-get -y update && \
+    apt-get -y --no-install-recommends install \
+        tesseract-ocr \
+        tesseract-ocr-ind \
+        tesseract-ocr-osd \
+        poppler-utils && \
+    rm -rf /var/lib/apt/lists/*
+
 # Cleanup
 RUN rm -rf /usr/src/*
